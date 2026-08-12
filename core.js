@@ -5,22 +5,37 @@
  * ==============================================================================
  */
 
-/* --- 1. 雲端控管大腦 (Supabase Configuration) --- */
+/* --- core.js 頂部效能與警告優化 --- */
+(function() {
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+        if (typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+        originalWarn.apply(console, args);
+    };
+})();
+
+/* ==========================================
+   1. 雲端控管大腦 (Supabase Configuration)
+   ========================================== */
 const CLOUD_CONFIG = {
     useCloud: true, 
     endpoint: 'https://ifermcurjgpxphchlzub.supabase.co', 
     apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmZXJtY3VyamdweHBoY2hsenViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NDA2MTcsImV4cCI6MjEwMjExNjYxN30.O-vE999g8HJmV8LHsogeUkPkTQ57G-Z1NHphN2o8bjw' 
 };
 
+// 防禦性宣告連線邏輯
 if (typeof window.supabaseClient === 'undefined') {
     window.supabaseClient = window.supabase.createClient(CLOUD_CONFIG.endpoint, CLOUD_CONFIG.apiKey);
 }
 var supabase = window.supabaseClient;
 
-/* --- 2. 全域變數 --- */
+/* ==========================================
+   2. 全域變數 (Global State)
+   ========================================== */
 let currentDay = 1;
-let days = [];
+let days = []; // 儲存格式如 ["08.13", "08.14", ...]
 
+// 備註圖示顏色映射表 (11 色補完版)
 const colorMap = { 
     '📌': 'note-purple', '⌛': 'note-blue', '📢': 'note-yellow',
     '‼️': 'note-red', '📸': 'note-green', '🍀': 'note-teal',   
@@ -28,6 +43,13 @@ const colorMap = {
     '🍴': 'note-brown', '💕': 'note-pink'    
 };
 
+/* ==========================================
+   3. 雲端資料存取層 (Data Access Layer - DAL)
+   ========================================== */
+
+/**
+ * 更新雲端狀態燈號
+ */
 function updateCloudStatus(isOnline) {
     const dot = document.getElementById('status-dot');
     const text = document.getElementById('status-text');
@@ -44,7 +66,9 @@ function updateCloudStatus(isOnline) {
     }
 }
 
-/* --- 3. 資料存取層 (DAL) --- */
+/**
+ * 讀取雲端/本地資料
+ */
 async function fetchData(key, defaultValue = '[]') {
     if (!CLOUD_CONFIG.useCloud) {
         const data = localStorage.getItem(key);
@@ -74,6 +98,9 @@ async function fetchData(key, defaultValue = '[]') {
     }
 }
 
+/**
+ * 寫入雲端/本地資料
+ */
 async function saveData(key, content) {
     localStorage.setItem(key, JSON.stringify(content));
     if (!CLOUD_CONFIG.useCloud) return;
@@ -91,6 +118,9 @@ async function saveData(key, content) {
     }
 }
 
+/**
+ * 輔助函數：將成員自動寫入雲端旅伴名單 (editorList)
+ */
 async function addToEditorList(name) {
     if (!name) return;
     try {
@@ -105,7 +135,9 @@ async function addToEditorList(name) {
     }
 }
 
-/* --- 4. 身份驗證中心 (Auth System) --- */
+/* ==========================================
+   4. 身分驗證與帳號管理 (Auth System)
+   ========================================== */
 const auth = {
     init: function() {
         const currentUser = localStorage.getItem('currentUser');
@@ -211,9 +243,18 @@ const auth = {
         }
     }
 };
-
-/* --- 5. 初始化與實時同步 --- */
+/* ==========================================
+   5. 初始化與實時同步 (Initialization & Sync)
+   ========================================== */
 window.onload = async () => { 
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        const warn = console.warn;
+        console.warn = (...args) => {
+            if (args[0] && args[0].includes('should not be used in production')) return;
+            warn(...args);
+        };
+    }
+
     try {
         const { data, error } = await supabase.from('trip_data').select('key').limit(1);
         if (!error) updateCloudStatus(true);
@@ -244,19 +285,35 @@ function initRealtimeSync() {
         .channel('trip_realtime_sync')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trip_data' }, payload => {
             const updatedKey = payload.new.key;
-            if (updatedKey === 'schedule' && typeof renderList === 'function') renderList();
-            if (updatedKey === 'tripExpenses' && typeof renderExpensesV2 === 'function') renderExpensesV2();
-            if (updatedKey === 'dailyData' && typeof loadDailyData === 'function') loadDailyData();
-            if (updatedKey === 'prep_items' && typeof renderPrep === 'function') renderPrep();
-            if (updatedKey.includes('guide_tiles') && typeof renderGuide === 'function') renderGuide();
-            if (updatedKey === 'quotes' && typeof renderQuotes === 'function') renderQuotes();
+            console.log(`⚡ 偵測到雲端更新: ${updatedKey}`);
+            
+            if (updatedKey === 'schedule') {
+                if (typeof renderList === 'function') renderList();
+            }
+            if (updatedKey === 'tripExpenses') {
+                if (typeof renderExpensesV2 === 'function') renderExpensesV2();
+            }
+            if (updatedKey === 'dailyData') {
+                if (typeof loadDailyData === 'function') loadDailyData();
+            }
+            if (updatedKey === 'prep_items') {
+                if (typeof renderPrep === 'function') renderPrep();
+            }
+            if (updatedKey.includes('guide_tiles')) {
+                if (typeof renderGuide === 'function') renderGuide();
+            }
+            if (updatedKey === 'quotes') {
+                if (typeof renderQuotes === 'function') renderQuotes();
+            }
         })
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') updateCloudStatus(true);
         });
 }
 
-/* --- 6. UI 與導覽 --- */
+/* ==========================================
+   6. 導覽列與分頁控制 (UI Control)
+   ========================================== */
 function showPage(pageId, btnEl) {
     document.body.setAttribute('data-page', pageId);
     document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
@@ -287,7 +344,9 @@ function showPage(pageId, btnEl) {
     window.scrollTo(0, 0);
 }
 
-/* --- 7. 設定與旅程資訊 --- */
+/* ==========================================
+   7. 旅程設定與匯率邏輯 (Settings Logic)
+   ========================================== */
 async function openSettings() {
     const overlay = document.getElementById('settings-overlay');
     if (overlay) overlay.classList.add('active');
@@ -298,8 +357,10 @@ async function openSettings() {
     document.getElementById('set-end-date').value = localStorage.getItem('endDate') || "2026-08-18";
     document.getElementById('set-header-url').value = localStorage.getItem('headerImg') || "https://i.meee.com.tw/YTg8aFq.jpg";
     
-    document.getElementById('set-header-offset').value = localStorage.getItem('headerOffset') || "50";
-    document.getElementById('set-header-scale').value = localStorage.getItem('headerScale') || "100";
+    const offset = localStorage.getItem('headerOffset') || "50";
+    document.getElementById('set-header-offset').value = offset;
+    const scale = localStorage.getItem('headerScale') || "100";
+    document.getElementById('set-header-scale').value = scale;
 
     const rates = await fetchData('tripRates', '{"KRW":0.024, "USD":32.5}');
     if (document.getElementById('set-rate-krw')) document.getElementById('set-rate-krw').value = rates.KRW;
@@ -362,7 +423,9 @@ async function loadTripSettings() {
     }
 }
 
-/* --- 8. 日期計算 --- */
+/* ==========================================
+   8. 日期運算工具
+   ========================================== */
 function calculateDaysArray(start, end) {
     const s = new Date(start);
     const e = new Date(end);
@@ -385,7 +448,9 @@ function formatFullDate(dateStr) {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${getDayOfWeek(dateStr)})`;
 }
 
-/* --- 9. 每日資訊 --- */
+/* ==========================================
+   9. 飯店與當日主題 (Daily Info)
+   ========================================== */
 async function saveDailyData() {
     const data = await fetchData('dailyData', '{}');
     data[currentDay] = { 
@@ -412,7 +477,9 @@ function updateHotelLink() {
     el.href = el.innerText.startsWith('http') ? el.innerText : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(el.innerText)}`;
 }
 
-/* --- 10. 工具函式 --- */
+/* ==========================================
+   10. 全域工具 (Utilities)
+   ========================================== */
 const utils = {
     compressImage: function(file, maxSide = 1200, quality = 0.8) {
         return new Promise((resolve) => {

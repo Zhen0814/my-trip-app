@@ -1073,12 +1073,10 @@ body[data-page="prep"] main {
 /* ==========================================
    14. 記帳模組 (Expense System)
    ========================================== */
-/* 調整 main padding：使整體內容自 Header 下方（130px）開始即可，高度完全自適應 */
 body[data-page="expense"] main {
-    padding-top: 130px !important; 
+    padding-top: 310px !important; 
 }
 
-/* 1. 記帳/明細膠囊列 (置頂固定在 Header 下方：130px) */
 .exp-nav-bar {
     position: fixed !important; 
     top: 130px !important; 
@@ -1086,7 +1084,7 @@ body[data-page="expense"] main {
     right: 0;
     height: 52px; 
     background: var(--bg-soft) !important;
-    z-index: 500 !important; 
+    z-index: 205; 
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1101,27 +1099,11 @@ body[data-page="expense"] main {
     height: 42px !important; 
     padding: 3px !important;
     border-radius: 50px !important;
-    display: grid !template-columns: 1fr 1fr !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
     box-shadow: 0 4px 10px rgba(139, 115, 85, 0.05) !important;
 }
 
-/* 2. 記帳頁面 - 輸入區域 (#exp-entry-zone)
-   使用 sticky 固定在膠囊列下方 (130px + 52px = 182px) */
-#exp-entry-zone {
-    position: -webkit-sticky !important;
-    position: sticky !important;
-    top: 182px !important;
-    z-index: 400 !important;
-    margin: 12px !important;
-    background-color: white;
-    border-radius: 20px !important;
-    padding: 10px 14px !important; 
-    border: 1px solid rgba(243, 217, 143, 0.4) !important;
-    box-shadow: 0 8px 20px rgba(114, 152, 199, 0.1) !important;
-}
-
-/* 3. 明細頁面 - 公費/旅伴膠囊列 (.exp-subtab-bar)
-   使用 sticky 吸附在膠囊列下方 (182px) */
 .exp-subtab-bar {
     position: -webkit-sticky !important;
     position: sticky !important;
@@ -1147,8 +1129,6 @@ body[data-page="expense"] main {
 }
 .exp-subtab-list::-webkit-scrollbar { display: none !important; }
 
-/* 4. 明細頁面 - 總支出小卡 (#exp-stats-card)
-   使用 sticky 順序吸附在公費/旅伴膠囊列下方 (182px + 60px = 242px) */
 #exp-stats-card {
     position: -webkit-sticky !important;
     position: sticky !important;
@@ -1204,6 +1184,15 @@ body[data-page="expense"] main {
 
 .exp-content-wrapper {
     margin-top: 0 !important;
+}
+
+#exp-entry-zone {
+    margin: 12px !important;
+    background-color: white;
+    border-radius: 20px !important;
+    padding: 10px 14px !important; 
+    border: 1px solid rgba(243, 217, 143, 0.4) !important;
+    box-shadow: 0 8px 20px rgba(114, 152, 199, 0.1) !important;
 }
 
 .ledger-row {
@@ -1508,7 +1497,8 @@ body[data-page="guide"] main {
     height: 42px !important; 
     padding: 3px !important;
     border-radius: 50px !important;
-    display: grid !template-columns: 1fr 1fr !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
     box-shadow: 0 4px 10px rgba(139, 115, 85, 0.05) !important;
 }
 

@@ -213,11 +213,12 @@ const prepEngine = {
 /* ==========================================
    4. 導覽列與分頁邏輯 (重構：靜默初始化)
    ========================================== */
-function renderPrepNav() {
+async function renderPrepNav() {
     const nav = document.getElementById('prep-nav-list');
     if (!nav) return;
     
-    const editors = JSON.parse(localStorage.getItem('editorList') || '[]');
+    // 從雲端抓取最新的旅伴名單（若無則嘗試備援 LocalStorage）
+    const editors = await fetchData('editorList', '[]');
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
     
     if (currentUser) {

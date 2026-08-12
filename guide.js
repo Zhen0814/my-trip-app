@@ -610,15 +610,17 @@ function switchGuideView(view) {
     }
 }
 
-function renderGuideMemberTabs() {
+async function renderGuideMemberTabs() {
     const container = document.getElementById('guide-member-list');
     if (!container) return;
-    const editors = JSON.parse(localStorage.getItem('editorList') || '[]');
+
+    // 從雲端抓取最新的旅伴名單
+    const editors = await fetchData('editorList', '[]');
+
     let html = '';
     editors.forEach(name => {
-        const isSelected = (currentGuideMember === (name || "").trim());
-        html += `<div class="exp-subtab ${isSelected ? 'active font-bold' : ''}" 
-                      onclick="switchGuideMember('${name}')">👤 ${name}</div>`;
+        const isSelected = (currentGuideMember === name.trim());
+        html += `<div class="exp-subtab ${isSelected ? 'active' : ''}" onclick="switchGuideMember('${name}')">👤 ${name}</div>`;
     });
     container.innerHTML = html;
 }

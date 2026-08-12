@@ -76,29 +76,38 @@ async function fetchData(key, defaultValue = '[]') {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : JSON.parse(defaultValue);
     }
-
     try {
         const { data, error } = await supabase
             .from('trip_data')
             .select('content')
             .eq('key', key)
-            .maybeSingle(); // 將 .single() 改為 .maybeSingle()
+            .maybeSingle(); // 1. 注意這裡要用 maybeSingle
 
-        if (error) {
-            console.warn(`Fetch [${key}] 失敗或尚無資料:`, error.message);
-            return JSON.parse(defaultValue === 'null' ? 'null' : defaultValue);
-        }
-        
+        if (error) throw error; // 2. 這裡直接拋出真正嚴重的錯誤
+
         if (!data) {
-            console.log(`Fetch: [${key}] 雲端尚無紀錄，使用預設值。`);
-            return JSON.parse(defaultValue === 'null' ? 'null' : defaultValue);
+            // 雲端沒資料時的處理
+            const local = localStorage.getItem(key);
+            return local ? JSON.parse(local) : JSON.parse(defaultValue);
         }
-        
+
+        // 同步回 LocalStorage
+        localStorage.setItem(key, JSON.stringify(data.content));
         updateCloudStatus(true);
         return data.content;
     } catch (e) {
         console.error(`Fetch Error [${key}]:`, e);
-        return JSON.parse(defaultValue === 'null' ? 'null' : defaultValue);
+        const local = localStorage.getItem(key);
+        return local ? JSON.parse(local) : JSON.parse(defaultValue);
+    }
+}        
+        updateCloudStatus(true);
+        return data.content;
+    } catch (e) {
+        console.error(`Fetch Error [${key}]:`, e);
+        // 雲端出錯時，優先拿 LocalStorage 的離線資料，拿不到才用預設值
+        const local = localStorage.getItem(key);
+        return local ? JSON.parse(local) : JSON.parse(defaultValue);
     }
 }
 
@@ -224,6 +233,22 @@ const auth = {
     /**
      * 修改後的身分驗證邏輯 (補丁：整合登入與註冊)
      */
+    /* --- 輔助函數：更新雲端編輯者名單 (editorList) --- */
+async function addToEditorList(name) {
+    try {
+        let editors = await fetchData('editorList', '[]');
+        if (!Array.isArray(editors)) editors = [];
+        if (!editors.includes(name)) {
+            editors.push(name);
+            await saveData('editorList', editors);
+        }
+    } catch (e) {
+        console.error("更新 editorList 失敗:", e);
+    }
+}
+
+/* --- auth 物件完整修復版 --- */
+const auth = {
     register: async function() {
         const nameInput = document.getElementById('reg-nickname');
         const pwdInput = document.getElementById('reg-password');
@@ -240,6 +265,10 @@ const auth = {
             if (btoa(pwd) === cloudUser.password) {
                 localStorage.setItem('currentUser', name);
                 localStorage.setItem('nickname', name);
+                
+                // 確保登入者也在雲端旅伴名單中
+                await addToEditorList(name);
+
                 alert(`歡迎回來，${name}！已從雲端找回您的身分資料。`);
                 location.reload();
                 return;
@@ -255,11 +284,14 @@ const auth = {
             createdAt: new Date().getTime()
         };
 
+        // 寫入雲端個人身分
         await saveData(`user_${name}`, userData);
         localStorage.setItem('currentUser', name);
         localStorage.setItem('nickname', name);
         
-        if (typeof addToEditorList === 'function') await addToEditorList(name);
+        // 核心修復：將新註冊者加入雲端 editorList 旅伴名單
+        await addToEditorList(name);
+
         alert(`註冊成功！已為「${name}」建立雲端同步身分。`);
         location.reload();
     },
@@ -283,23 +315,38 @@ const auth = {
         if (confirm(`警告：您正在註銷「${user}」的帳號。\n私人資料將永久刪除且無法復原。`)) {
             if (prompt(`請輸入暱稱「${user}」確認：`) !== user) return alert("輸入錯誤");
 
-            document.getElementById('global-loader').classList.remove('hidden');
+            const loader = document.getElementById('global-loader');
+            if (loader) loader.classList.remove('hidden');
 
-            await supabase.from('trip_data').delete().eq('key', `user_${user}`);
-            await supabase.from('trip_data').delete().eq('key', `guide_tiles_${user}`);
+            try {
+                // 1. 刪除 Supabase 個人資料與指南資料
+                await supabase.from('trip_data').delete().eq('key', `user_${user}`);
+                await supabase.from('trip_data').delete().eq('key', `guide_tiles_${user}`);
 
-            let expenses = await fetchData('tripExpenses', '[]');
-            expenses = expenses.filter(item => item.owner !== user);
-            await saveData('tripExpenses', expenses);
+                // 2. 清理公費/個人帳單
+                let expenses = await fetchData('tripExpenses', '[]');
+                if (Array.isArray(expenses)) {
+                    expenses = expenses.filter(item => item.owner !== user);
+                    await saveData('tripExpenses', expenses);
+                }
 
-            let editors = await fetchData('editorList', '[]');
-            editors = editors.filter(e => e !== user);
-            await saveData('editorList', editors);
+                // 3. 從雲端旅伴名單移除
+                let editors = await fetchData('editorList', '[]');
+                if (Array.isArray(editors)) {
+                    editors = editors.filter(e => e !== user);
+                    await saveData('editorList', editors);
+                }
 
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('nickname');
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('nickname');
 
-            setTimeout(() => { location.reload(); }, 600);
+                alert("帳號已成功註銷並清理資料！");
+                location.reload();
+            } catch (e) {
+                console.error("註銷帳號失敗:", e);
+                alert("註銷失敗，請稍後重試。");
+                if (loader) loader.classList.add('hidden');
+            }
         }
     }
 };

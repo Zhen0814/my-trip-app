@@ -239,11 +239,15 @@ function switchDetailTab(owner) {
 /**
  * 渲染公費/個人分頁標籤
  */
-function renderDetailTabs() {
+async function renderDetailTabs() {
     const container = document.getElementById('exp-subtab-list');
     if (!container) return;
-    const editors = JSON.parse(localStorage.getItem('editorList') || '[]');
+    
+    // 改為從雲端（Supabase）讀取最新的旅伴名單
+    const editors = await fetchData('editorList', '[]');
+    
     let html = `<div class="exp-subtab ${currentDetailOwner === 'public' ? 'active' : ''}" onclick="switchDetailTab('public')">🌐 公費</div>`;
+    
     editors.forEach(name => {
         html += `<div class="exp-subtab ${currentDetailOwner === name ? 'active' : ''}" onclick="switchDetailTab('${name}')">👤 ${name}</div>`;
     });

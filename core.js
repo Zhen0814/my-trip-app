@@ -72,6 +72,10 @@ function updateCloudStatus(isOnline) {
  * 統一的資料讀取器 (fetchData)
  */
 // 修正後的 fetchData
+/* --- 修正後的 fetchData --- */
+/* --- core.js 完整修復版 --- */
+
+// 1. 修復 fetchData：解決 406/404 報錯與離線備援
 async function fetchData(key, defaultValue = '[]') {
     if (!CLOUD_CONFIG.useCloud) {
         const data = localStorage.getItem(key);
@@ -100,46 +104,113 @@ async function fetchData(key, defaultValue = '[]') {
         return local ? JSON.parse(local) : JSON.parse(defaultValue);
     }
 }
-        updateCloudStatus(true);
-        return data.content;
+
+// 2. 輔助函數：將成員自動寫入雲端旅伴名單
+async function addToEditorList(name) {
+    try {
+        let editors = await fetchData('editorList', '[]');
+        if (!Array.isArray(editors)) editors = [];
+        if (!editors.includes(name)) {
+            editors.push(name);
+            await saveData('editorList', editors);
+        }
     } catch (e) {
-        console.error(`Fetch Error [${key}]:`, e);
-        // 雲端出錯時，優先拿 LocalStorage 的離線資料，拿不到才用預設值
-        const local = localStorage.getItem(key);
-        return local ? JSON.parse(local) : JSON.parse(defaultValue);
+        console.error("更新 editorList 失敗:", e);
     }
 }
 
-/**
- * 統一的資料寫入器 (saveData)
- */
-async function saveData(key, data) {
-    const loader = document.getElementById('global-loader');
-    if (loader) loader.classList.remove('hidden');
-    
-    try {
-        if (!CLOUD_CONFIG.useCloud) {
-            localStorage.setItem(key, JSON.stringify(data));
-        } else {
-            const { error } = await supabase
-                .from('trip_data')
-                .upsert({ key: key, content: data }, { onConflict: 'key' });
-            
-            if (error) throw error;
-            updateCloudStatus(true);
+// 3. 修復 auth 物件：登入/註冊/註銷全雲端連動
+const auth = {
+    register: async function() {
+        const nameInput = document.getElementById('reg-nickname');
+        const pwdInput = document.getElementById('reg-password');
+        const name = nameInput ? nameInput.value.trim() : "";
+        const pwd = pwdInput ? pwdInput.value : "";
+
+        if (!name || !pwd) return alert("請填寫完整暱稱與密碼");
+
+        const cloudUser = await fetchData(`user_${name}`, 'null');
+        
+        if (cloudUser) {
+            if (btoa(pwd) === cloudUser.password) {
+                localStorage.setItem('currentUser', name);
+                localStorage.setItem('nickname', name);
+                await addToEditorList(name);
+                alert(`歡迎回來，${name}！已從雲端找回您的身分資料。`);
+                location.reload();
+                return;
+            } else {
+                return alert("此暱稱已被佔用，且密碼錯誤！請重新輸入或更換暱稱。");
+            }
         }
-    } catch (e) {
-        console.error(`Save Error [${key}]:`, e);
-        updateCloudStatus(false);
+
+        const userData = {
+            nickname: name,
+            password: btoa(pwd),
+            createdAt: new Date().getTime()
+        };
+
+        await saveData(`user_${name}`, userData);
+        localStorage.setItem('currentUser', name);
+        localStorage.setItem('nickname', name);
+        
+        await addToEditorList(name);
+
+        alert(`註冊成功！已為「${name}」建立雲端同步身分。`);
+        location.reload();
+    },
+
+    isOwner: function(targetName) {
+        const current = localStorage.getItem('currentUser');
+        return current === (targetName || "").trim();
+    },
+
+    logout: function() {
+        if (confirm("登出後需重新輸入密碼才能存取旅程資料，確定登出？")) {
+            localStorage.removeItem('currentUser');
+            location.reload();
+        }
+    },
+
+    deleteAccount: async function() {
+        const user = localStorage.getItem('currentUser');
+        if (!user) return;
+
+        if (confirm(`警告：您正在註銷「${user}」的帳號。\n私人資料將永久刪除且無法復原。`)) {
+            if (prompt(`請輸入暱稱「${user}」確認：`) !== user) return alert("輸入錯誤");
+
+            const loader = document.getElementById('global-loader');
+            if (loader) loader.classList.remove('hidden');
+
+            try {
+                await supabase.from('trip_data').delete().eq('key', `user_${user}`);
+                await supabase.from('trip_data').delete().eq('key', `guide_tiles_${user}`);
+
+                let expenses = await fetchData('tripExpenses', '[]');
+                if (Array.isArray(expenses)) {
+                    expenses = expenses.filter(item => item.owner !== user);
+                    await saveData('tripExpenses', expenses);
+                }
+
+                let editors = await fetchData('editorList', '[]');
+                if (Array.isArray(editors)) {
+                    editors = editors.filter(e => e !== user);
+                    await saveData('editorList', editors);
+                }
+
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('nickname');
+
+                alert("帳號已成功註銷並清理資料！");
+                location.reload();
+            } catch (e) {
+                console.error("註銷帳號失敗:", e);
+                alert("註銷失敗，請稍後重試。");
+                if (loader) loader.classList.add('hidden');
+            }
+        }
     }
-    
-    return new Promise(resolve => {
-        setTimeout(() => {
-            if (loader) loader.classList.add('hidden');
-            resolve(true);
-        }, 500);
-    });
-}
+};
 
 /* ==========================================
    4. 初始化與實時同步 (Initialization & Sync)

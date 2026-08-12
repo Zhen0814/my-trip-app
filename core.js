@@ -6,29 +6,48 @@
  * [更新內容] 徹底實作 fetchData/saveData 雲端化，導入 Supabase Realtime Sync
  * ==============================================================================
  */
-
-/* --- core.js 頂部效能與警告優化 --- */
-(function() {
-    const originalWarn = console.warn;
-    console.warn = (...args) => {
-        // 屏蔽 Tailwind CDN 生產環境警告
-        if (typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
-        originalWarn.apply(console, args);
-    };
-})();
-
 /* ==========================================
    1. 雲端控管大腦 (Supabase Configuration)
    ========================================== */
 const CLOUD_CONFIG = {
     useCloud: true, 
-    // Supabase 專案資訊
     endpoint: 'https://ifermcurjgpxphchlzub.supabase.co', 
-    apiKey: 'sb_publishable_SzhvuztkkmzJGgxfQKxhHA_oSIjpsTV' 
+    apiKey: 'sb_publishable_SzhvuztkkmzJGgxfQKxhHAoSIjpSTV' 
 };
 
-// 初始化 Supabase 連線
-const supabase = window.supabase.createClient(CLOUD_CONFIG.endpoint, CLOUD_CONFIG.apiKey);
+// 安全宣告：如果還沒初始化才初始化
+if (typeof supabase === 'undefined') {
+    window.supabaseClient = window.supabase.createClient(CLOUD_CONFIG.endpoint, CLOUD_CONFIG.apiKey);
+}
+const supabase = window.supabaseClient;
+
+/**
+ * 更新雲端狀態燈號
+ */
+function updateCloudStatus(isOnline) {
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    if (dot && txt) {
+        dot.className = `w-2 h-2 rounded-full ${isOnline ? 'online bg-green-500' : 'offline bg-red-500'}`;
+        txt.innerText = isOnline ? 'ONLINE' : 'OFFLINE';
+        if (isOnline) {
+            dot.style.boxShadow = "0 0 8px rgba(16, 185, 129, 0.4)";
+        }
+    }
+}
+
+// 測試連線並亮燈
+(async function testConnection() {
+    try {
+        const { data, error } = await supabase.from('trip_data').select('key').limit(1);
+        if (error) throw error;
+        updateCloudStatus(true); // 成功則亮綠燈
+    } catch (e) {
+        console.warn("雲端連線測試中...", e.message);
+        // 如果是空的 table 也算連線成功，只要不是 403/401 錯誤
+        if (e.message.includes("does not exist") === false) updateCloudStatus(true);
+    }
+})();
 
 /* ==========================================
    2. 全域變數 (Global State)

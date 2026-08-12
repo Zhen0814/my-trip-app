@@ -3,7 +3,7 @@
  * [檔案名稱] core.js
  * [功能描述] WebApp 核心控制中心：對接 Supabase 雲端資料庫與實時同步機制
  * [工程師] Senior Front-end Engineer (10+ Years Exp)
- * [更新內容] 規範化 Supabase 連線宣告，優化 fetchData/saveData 異步流程
+ * [更新內容] 升級身份驗證邏輯：支援跨裝置身分找回（登入/註冊整合補丁）
  * ==============================================================================
  */
 
@@ -25,11 +25,11 @@ const CLOUD_CONFIG = {
     apiKey: 'sb_publishable_SzhvuztkkmzJGgxfQKxhHAoSIjpSTV' 
 };
 
-// 這是整個 App 唯一的連線宣告，嚴禁在其他地方重複！
+// 防禦性宣告連線邏輯
 if (typeof window.supabaseClient === 'undefined') {
     window.supabaseClient = window.supabase.createClient(CLOUD_CONFIG.endpoint, CLOUD_CONFIG.apiKey);
 }
-var supabase = window.supabaseClient; // 改用 var 增加相容性，避免重複宣告報錯
+var supabase = window.supabaseClient;
 
 /* ==========================================
    2. 全域變數 (Global State)
@@ -70,7 +70,6 @@ function updateCloudStatus(isOnline) {
 
 /**
  * 統一的資料讀取器 (fetchData)
- * 優先從雲端獲取，失敗或關閉雲端則回退至 localStorage
  */
 async function fetchData(key, defaultValue = '[]') {
     if (!CLOUD_CONFIG.useCloud) {
@@ -86,21 +85,20 @@ async function fetchData(key, defaultValue = '[]') {
             .single();
 
         if (error || !data) {
-            console.log(`Fetch: [${key}] 無雲端紀錄，使用預設值。`);
-            return JSON.parse(defaultValue);
+            console.log(`Fetch: [${key}] 無雲端紀錄。`);
+            return JSON.parse(defaultValue === 'null' ? 'null' : defaultValue);
         }
         
         updateCloudStatus(true);
         return data.content;
     } catch (e) {
         console.error(`Fetch Error [${key}]:`, e);
-        return JSON.parse(defaultValue);
+        return JSON.parse(defaultValue === 'null' ? 'null' : defaultValue);
     }
 }
 
 /**
  * 統一的資料寫入器 (saveData)
- * 寫入雲端並觸發即時 Loading 效果
  */
 async function saveData(key, data) {
     const loader = document.getElementById('global-loader');
@@ -110,7 +108,6 @@ async function saveData(key, data) {
         if (!CLOUD_CONFIG.useCloud) {
             localStorage.setItem(key, JSON.stringify(data));
         } else {
-            // 雲端 Upsert (有則更新，無則新增)
             const { error } = await supabase
                 .from('trip_data')
                 .upsert({ key: key, content: data }, { onConflict: 'key' });
@@ -123,7 +120,6 @@ async function saveData(key, data) {
         updateCloudStatus(false);
     }
     
-    // 模擬行動端同步感與視覺緩衝 500ms
     return new Promise(resolve => {
         setTimeout(() => {
             if (loader) loader.classList.add('hidden');
@@ -137,7 +133,6 @@ async function saveData(key, data) {
    ========================================== */
 
 window.onload = async () => { 
-    // 再次確保屏蔽生產環境警告
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         const warn = console.warn;
         console.warn = (...args) => {
@@ -146,7 +141,6 @@ window.onload = async () => {
         };
     }
 
-    // 測試連線
     try {
         const { data, error } = await supabase.from('trip_data').select('key').limit(1);
         if (!error) updateCloudStatus(true);
@@ -157,25 +151,19 @@ window.onload = async () => {
     auth.init(); 
     await loadTripSettings(); 
     
-    // 初始化各功能模組
     if (typeof initDays === 'function') initDays(); 
     if (typeof renderList === 'function') renderList(); 
     
     await loadDailyData(); 
     
-    // 渲染各分頁初始數據
     if (typeof renderExpensesV2 === 'function') renderExpensesV2();
     if (typeof renderPrep === 'function') renderPrep();
     if (typeof renderGuide === 'function') renderGuide();
     if (typeof renderQuotes === 'function') renderQuotes();
 
-    // 啟動實時監聽
     initRealtimeSync();
 };
 
-/**
- * 實時同步監聽器：實現多裝置協作不需重新整理
- */
 function initRealtimeSync() {
     if (!CLOUD_CONFIG.useCloud) return;
 
@@ -185,7 +173,6 @@ function initRealtimeSync() {
             const updatedKey = payload.new.key;
             console.log(`⚡ 偵測到雲端更新: ${updatedKey}`);
             
-            // 自動觸發對應畫面的重新渲染
             if (updatedKey === 'schedule') {
                 if (typeof renderList === 'function') renderList();
             }
@@ -229,15 +216,34 @@ const auth = {
         }
     },
 
+    /**
+     * 修改後的身分驗證邏輯 (補丁：整合登入與註冊)
+     */
     register: async function() {
         const nameInput = document.getElementById('reg-nickname');
         const pwdInput = document.getElementById('reg-password');
         const name = nameInput ? nameInput.value.trim() : "";
         const pwd = pwdInput ? pwdInput.value : "";
 
-        if (!name || name.length < 2) return alert("旅伴暱稱至少需要 2 個字");
-        if (!pwd) return alert("請設定存取密碼");
+        if (!name || !pwd) return alert("請填寫完整暱稱與密碼");
 
+        /* 1. 先去雲端查有沒有這個人 */
+        const cloudUser = await fetchData(`user_${name}`, 'null');
+        
+        if (cloudUser) {
+            /* 2. 如果雲端有資料，執行「登入」比對邏輯 */
+            if (btoa(pwd) === cloudUser.password) {
+                localStorage.setItem('currentUser', name);
+                localStorage.setItem('nickname', name);
+                alert(`歡迎回來，${name}！已從雲端找回您的身分資料。`);
+                location.reload();
+                return;
+            } else {
+                return alert("此暱稱已被佔用，且密碼錯誤！請重新輸入或更換暱稱。");
+            }
+        }
+
+        /* 3. 雲端沒人，執行「註冊」邏輯 */
         const userData = {
             nickname: name,
             password: btoa(pwd),
@@ -245,12 +251,11 @@ const auth = {
         };
 
         await saveData(`user_${name}`, userData);
-        
-        // 身分識別仍保留於本地 localStorage
         localStorage.setItem('currentUser', name);
         localStorage.setItem('nickname', name);
         
         if (typeof addToEditorList === 'function') await addToEditorList(name);
+        alert(`註冊成功！已為「${name}」建立雲端同步身分。`);
         location.reload();
     },
 
@@ -275,7 +280,6 @@ const auth = {
 
             document.getElementById('global-loader').classList.remove('hidden');
 
-            // 清理雲端紀錄
             await supabase.from('trip_data').delete().eq('key', `user_${user}`);
             await supabase.from('trip_data').delete().eq('key', `guide_tiles_${user}`);
 
@@ -367,7 +371,6 @@ async function saveGeneralSettings() {
 
     const nickname = document.getElementById('set-nickname').value;
     
-    // 本地與雲端同步保存
     localStorage.setItem('nickname', nickname);
     localStorage.setItem('tripTitle', document.getElementById('set-trip-title').value);
     localStorage.setItem('startDate', sDate);

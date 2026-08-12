@@ -3,7 +3,7 @@
  * [檔案名稱] expense.js
  * [功能描述] 記帳與開支管理系統：包含多幣別換算、公費/私人分帳、照片收據管理與加密解鎖
  * [工程師] Senior Front-end Engineer (10+ Years Exp)
- * [更新內容] 修正公費項目刪除權限、更新解鎖卡片 UI 結構為目標設計格式
+ * [更新內容] 全面導入 fetchData / saveData 雲端同步邏輯
  * ==============================================================================
  */
 
@@ -16,7 +16,7 @@ let selectedPayer = '';              // 預設支付者
 let selectedExpOwner = 'public';      // 預設歸屬對象 (公費/私人)
 let collapsedDays = {};              // 明細摺疊狀態紀錄
 
-// 匯率定義：KRW、USD 對 TWD 的匯率
+// 匯率定義：KRW、USD 對 TWD 的匯率 (此部分可保留在 LocalStorage 作為快取)
 const rates = JSON.parse(localStorage.getItem('tripRates') || '{"KRW":0.024, "USD":32.5, "TWD":1.0}');
 
 /* --- 2. 視圖切換路由 --- */
@@ -49,11 +49,15 @@ async function updateExpensePhoto(id, input) {
     try {
         // 使用 utils 進行圖片壓縮，設定 1200px 寬度平衡清晰度與儲存空間
         const compressedBase64 = await utils.compressImage(input.files[0], 1200, 0.8);
-        let data = JSON.parse(localStorage.getItem('tripExpenses') || '[]');
+        
+        // 關鍵修改：從雲端抓取資料
+        let data = await fetchData('tripExpenses', '[]');
         const idx = data.findIndex(item => item.id === id);
+        
         if (idx !== -1) {
             data[idx].receiptImg = compressedBase64;
-            localStorage.setItem('tripExpenses', JSON.stringify(data));
+            // 關鍵修改：存回雲端
+            await saveData('tripExpenses', data);
             renderExpensesV2();
         }
     } catch (err) { 
@@ -66,15 +70,20 @@ async function updateExpensePhoto(id, input) {
  * 刪除指定帳目照片
  * @param {number} id 帳目 ID
  */
-function deleteExpensePhoto(id) {
-    let data = JSON.parse(localStorage.getItem('tripExpenses') || '[]');
+async function deleteExpensePhoto(id) {
+    // 關鍵修改：從雲端抓取資料
+    let data = await fetchData('tripExpenses', '[]');
     const idx = data.findIndex(item => item.id === id);
+    
     if (idx !== -1) {
         data[idx].receiptImg = ""; 
-        localStorage.setItem('tripExpenses', JSON.stringify(data));
+        // 關鍵修改：存回雲端
+        await saveData('tripExpenses', data);
+        
         // 若燈箱開啟中，則關閉
         const lightbox = document.getElementById('trans-lightbox');
         if (lightbox) lightbox.classList.remove('active');
+        
         renderExpensesV2();
     }
 }
@@ -114,7 +123,7 @@ function selectExpOwner(el, owner) {
 }
 
 /**
- * 初始化記帳表單 (載入成員清單、預設日期等)
+ * 初始化記帳表單
  */
 function initExpenseFormV2() {
     const payerContainer = document.getElementById('ev2-payer-list');
@@ -123,7 +132,6 @@ function initExpenseFormV2() {
     const editors = JSON.parse(localStorage.getItem('editorList') || '[]');
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
 
-    // 初始化日期
     if (dateInput && typeof days !== 'undefined' && days[currentDay-1]) {
         const storedStartDate = localStorage.getItem('startDate');
         const year = storedStartDate ? storedStartDate.split('-')[0] : new Date().getFullYear();
@@ -131,7 +139,6 @@ function initExpenseFormV2() {
         dateInput.value = `${year}-${monthDay}`;
     }
 
-    // 渲染支付者清單
     if (payerContainer) {
         if (!selectedPayer) selectedPayer = currentUser;
         let payerHtml = '';
@@ -141,7 +148,6 @@ function initExpenseFormV2() {
         payerContainer.innerHTML = payerHtml;
     }
 
-    // 渲染歸屬者清單 (公費 + 所有成員)
     if (ownerContainer) {
         let ownerHtml = `<div class="exp-member-pill ${selectedExpOwner === 'public' ? 'active' : ''}" onclick="selectExpOwner(this, 'public')">🌐 公費</div>`;
         editors.forEach(name => {
@@ -154,9 +160,9 @@ function initExpenseFormV2() {
 /* --- 6. 數據操作 (新增/刪除) --- */
 
 /**
- * 儲存記帳資料
+ * 儲存記帳資料 - 已改為非同步
  */
-function saveExpenseV2() {
+async function saveExpenseV2() {
     const noteEl = document.getElementById('ev2-note');
     const krwEl = document.getElementById('ev2-krw');
     const dateEl = document.getElementById('ev2-date');
@@ -170,7 +176,9 @@ function saveExpenseV2() {
         return;
     }
 
-    const data = JSON.parse(localStorage.getItem('tripExpenses') || '[]');
+    // 關鍵修改：從雲端領取最新資料
+    const data = await fetchData('tripExpenses', '[]');
+    
     const newEntry = {
         id: Date.now(),
         date: dateVal,
@@ -186,20 +194,28 @@ function saveExpenseV2() {
     };
 
     data.push(newEntry);
-    localStorage.setItem('tripExpenses', JSON.stringify(data));
+
+    // 關鍵修改：使用 await saveData 存入雲端
+    await saveData('tripExpenses', data);
+    
     alert("✅ 費用已入帳");
     resetExpForm();
     switchExpView('details'); 
 }
 
 /**
- * 刪除記帳
+ * 刪除記帳 - 已改為非同步
  */
-function deleteExpenseV2(id) {
+async function deleteExpenseV2(id) {
     if (!confirm("確定要刪除這筆記帳嗎？")) return;
-    let data = JSON.parse(localStorage.getItem('tripExpenses') || '[]');
+    
+    // 關鍵修改：從雲端領取資料
+    let data = await fetchData('tripExpenses', '[]');
     const newData = data.filter(item => item.id !== id);
-    localStorage.setItem('tripExpenses', JSON.stringify(newData));
+    
+    // 關鍵修改：存回雲端
+    await saveData('tripExpenses', newData);
+    
     renderExpensesV2(); 
 }
 
@@ -240,21 +256,20 @@ function toggleDayExp(date) {
 }
 
 /**
- * 【核心渲染】渲染記帳明細列表
+ * 【核心渲染】渲染記帳明細列表 - 已改為非同步
  */
-function renderExpensesV2() {
+async function renderExpensesV2() {
     const listContainer = document.getElementById('expense-list-v2');
     const statsCard = document.getElementById('exp-stats-card');
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
     
     if (!listContainer) return;
 
-    // 關鍵：修正重複宣告問題，將判斷邏輯整併
+    // 判斷是否被密碼鎖定
     const isLocked = (currentDetailOwner !== 'public' && currentDetailOwner !== currentUser && !isExpUnlocked);
 
     if (isLocked) {
         if (statsCard) statsCard.style.display = 'none';
-        // 更新為計畫書 B 指定的卡片結構
         listContainer.innerHTML = `
             <div class="lock-zone flex flex-col items-center justify-center py-10">
                 <div class="lock-card">
@@ -274,11 +289,12 @@ function renderExpensesV2() {
 
     if (statsCard) statsCard.style.display = 'flex';
 
-    let data = JSON.parse(localStorage.getItem('tripExpenses') || '[]');
+    // 關鍵修改：從雲端抓取記帳紀錄
+    let data = await fetchData('tripExpenses', '[]');
     let filtered = data.filter(item => item.owner === currentDetailOwner);
     filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // 4. 計算分幣別總額統計
+    // 計算分幣別總額統計
     const curTotals = { KRW: 0, TWD: 0, USD: 0 };
     filtered.forEach(item => {
         if (curTotals.hasOwnProperty(item.currency)) {
@@ -302,7 +318,7 @@ function renderExpensesV2() {
         return;
     }
 
-    // 5. 分日期群組化渲染
+    // 分日期群組化渲染
     const groups = {};
     filtered.forEach(item => {
         if (!groups[item.date]) groups[item.date] = [];
@@ -323,7 +339,6 @@ function renderExpensesV2() {
                 </div>
                 <div class="exp-day-body ${isCollapsed ? 'collapsed' : ''}">
                     ${items.map(item => {
-                        // 只要是自己墊付的，或是該項目的歸屬者，或是公費項目的檢視，都應該能看到刪除鍵
                         const canDelete = (
                             (item.payer || "").trim() === currentUser || 
                             (item.owner || "").trim() === currentUser || 
@@ -374,10 +389,8 @@ function unlockPersonalExp() {
 
 /* --- 8. 事件監聽 --- */
 document.addEventListener('DOMContentLoaded', () => {
-    // 確保在開支分頁時執行初始化
     if (document.getElementById('tab-expense')) {
         initExpenseFormV2();
-        // 預設回到記帳輸入視圖
         switchExpView('entry');
     }
 });

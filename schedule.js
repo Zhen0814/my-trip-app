@@ -37,13 +37,14 @@ function switchDay(d, el) {
 }
 
 /* ==========================================
-   3. 行程列表渲染 (Render Cards)
+   3. 行程列表渲染 (Render Cards) - 已改為非同步
    ========================================== */
-function renderList() {
+async function renderList() {
     const container = document.getElementById('schedule-list');
     if (!container) return;
 
-    let allData = JSON.parse(localStorage.getItem('schedule') || '[]');
+    // 關鍵修改：從 fetchData 拿取最新雲端資料
+    let allData = await fetchData('schedule', '[]');
     let filtered = allData.filter(i => i.day === currentDay).sort((a,b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
     
     let html = ""; 
@@ -163,7 +164,7 @@ function renderNotes(notes) {
 /* ==========================================
    4. 行程編輯彈窗
    ========================================== */
-function openModal(idx = null) {
+async function openModal(idx = null) {
     editingIdx = idx;
     modalPreviewImgBase64 = "";
     document.getElementById('notes-container').innerHTML = "";
@@ -172,7 +173,8 @@ function openModal(idx = null) {
     const inputs = document.querySelectorAll('#modal-content input[type="text"], #modal-content input[type="time"], #modal-content input[type="number"]');
     inputs.forEach(input => input.value = "");
     
-    const data = JSON.parse(localStorage.getItem('schedule') || '[]');
+    // 從雲端獲取最新資料
+    const data = await fetchData('schedule', '[]');
     let item = idx !== null ? data[idx] : null;
     let targetAuthor = localStorage.getItem('nickname') || "";
 
@@ -224,9 +226,11 @@ function openModal(idx = null) {
     document.getElementById('modal-overlay').classList.add('active');
 }
 
-function saveItem() {
+async function saveItem() {
     const cat = document.querySelector('#cat-pills .selected').innerText; 
-    let data = JSON.parse(localStorage.getItem('schedule') || '[]');
+    
+    // 關鍵修改：存檔前先從雲端領取最新資料，避免覆蓋他人更動
+    let data = await fetchData('schedule', '[]'); 
     let item = { day: currentDay, cat: cat, author: selectedAuthor, notes: [] };
     
     document.querySelectorAll('#notes-container > .note-input-row').forEach(div => { 
@@ -252,32 +256,38 @@ function saveItem() {
         item.transportTime = document.getElementById('f-transport-time')?.value || ""; 
     }
 
-    if (editingIdx !== null) data[editingIdx] = item; else data.push(item);
-    localStorage.setItem('schedule', JSON.stringify(data)); 
+    if (editingIdx !== null) {
+        data[editingIdx] = item; 
+    } else {
+        data.push(item);
+    }
+
+    // 關鍵修改：使用 await saveData 存入雲端
+    await saveData('schedule', data); 
     closeModal(); 
-    renderList();
+    renderList(); // 重新渲染
 }
 
-function deleteItem(idx) { 
+async function deleteItem(idx) { 
     if(confirm("確定刪除行程？")) { 
-        let data = JSON.parse(localStorage.getItem('schedule') || '[]'); 
+        let data = await fetchData('schedule', '[]'); 
         data.splice(idx, 1); 
-        localStorage.setItem('schedule', JSON.stringify(data)); 
+        await saveData('schedule', data); 
         renderList(); 
     } 
 }
 
 /* ==========================================
-   5. 交通詳情實作邏輯 (修改點 B)
+   5. 交通詳情實作邏輯
    ========================================== */
-function openTransportDetail(idx) {
+async function openTransportDetail(idx) {
     currentTransIdx = idx; // idx 現在是目的地
     const overlay = document.getElementById('trans-detail-overlay');
     if (!overlay) return;
 
     document.body.classList.add('no-scroll');
     
-    let allData = JSON.parse(localStorage.getItem('schedule') || '[]');
+    let allData = await fetchData('schedule', '[]');
     let currentItem = allData[idx]; // 目的地
     
     // 獲取前一站作為起點
@@ -290,7 +300,7 @@ function openTransportDetail(idx) {
             { action: "從這裡出發", detail: originName, isHigh: false, imgs: [] },
             { action: "到達目的地", detail: currentItem.name, isHigh: false, imgs: [] }
         ];
-        localStorage.setItem('schedule', JSON.stringify(allData));
+        await saveData('schedule', allData);
     }
 
     // 導航連結設定
@@ -384,20 +394,20 @@ async function handleStepImg(stepIdx, input) {
     if (!input.files || !input.files[0]) return;
     try {
         const compressedBase64 = await utils.compressImage(input.files[0], 1200, 0.8);
-        saveStepImg(stepIdx, compressedBase64);
+        await saveStepImg(stepIdx, compressedBase64);
     } catch (err) {
         console.error(err);
         alert("圖片處理發生錯誤");
     }
 }
 
-function saveStepImg(stepIdx, base64) {
-    let data = JSON.parse(localStorage.getItem('schedule') || '[]');
+async function saveStepImg(stepIdx, base64) {
+    let data = await fetchData('schedule', '[]');
     if (data[currentTransIdx] && data[currentTransIdx].transitSteps) {
         let step = data[currentTransIdx].transitSteps[stepIdx];
         if (!step.imgs) step.imgs = [];
         step.imgs.push(base64);
-        localStorage.setItem('schedule', JSON.stringify(data));
+        await saveData('schedule', data);
         renderTransitTimeline(data[currentTransIdx].transitSteps);
     }
 }
@@ -422,19 +432,19 @@ function openLightbox(stepIdx, imgIdx, src, extra = null) {
     document.body.style.overflow = 'hidden'; 
 }
 
-function confirmDeleteStepImg() {
+async function confirmDeleteStepImg() {
     if (!confirm("確定要刪除這張圖片嗎？")) return;
     
     if (currentLightboxTarget.type === 'expense') {
         if (typeof deleteExpensePhoto === 'function') {
-            deleteExpensePhoto(currentLightboxTarget.expenseId);
+            await deleteExpensePhoto(currentLightboxTarget.expenseId);
         }
     } else {
-        let data = JSON.parse(localStorage.getItem('schedule') || '[]');
+        let data = await fetchData('schedule', '[]');
         const { stepIdx, imgIdx } = currentLightboxTarget;
         if (data[currentTransIdx] && data[currentTransIdx].transitSteps[stepIdx]) {
             data[currentTransIdx].transitSteps[stepIdx].imgs.splice(imgIdx, 1);
-            localStorage.setItem('schedule', JSON.stringify(data));
+            await saveData('schedule', data);
             document.getElementById('trans-lightbox').classList.remove('active');
             renderTransitTimeline(data[currentTransIdx].transitSteps);
         }
@@ -448,28 +458,28 @@ function closeLightbox(e) {
     }
 }
 
-function toggleStepHighlight(stepIdx) {
-    let data = JSON.parse(localStorage.getItem('schedule') || '[]');
+async function toggleStepHighlight(stepIdx) {
+    let data = await fetchData('schedule', '[]');
     if (data[currentTransIdx] && data[currentTransIdx].transitSteps) {
         let step = data[currentTransIdx].transitSteps[stepIdx];
         step.isHigh = !step.isHigh;
-        localStorage.setItem('schedule', JSON.stringify(data));
+        await saveData('schedule', data);
         renderTransitTimeline(data[currentTransIdx].transitSteps);
     }
 }
 
-function updateTransitStep(stepIdx, field, value) {
-    let data = JSON.parse(localStorage.getItem('schedule') || '[]');
+async function updateTransitStep(stepIdx, field, value) {
+    let data = await fetchData('schedule', '[]');
     if (data[currentTransIdx] && data[currentTransIdx].transitSteps) {
         if (data[currentTransIdx].transitSteps[stepIdx]) {
             data[currentTransIdx].transitSteps[stepIdx][field] = value;
-            localStorage.setItem('schedule', JSON.stringify(data));
+            await saveData('schedule', data);
         }
     }
 }
 
-function addTransitStep() {
-    let data = JSON.parse(localStorage.getItem('schedule') || '[]');
+async function addTransitStep() {
+    let data = await fetchData('schedule', '[]');
     if (data[currentTransIdx]) {
         if (!data[currentTransIdx].transitSteps) {
             data[currentTransIdx].transitSteps = [];
@@ -477,16 +487,16 @@ function addTransitStep() {
         const newStep = { action: "轉乘/步行", detail: "請輸入說明", isHigh: false, imgs: [] };
         const insertAt = Math.max(0, data[currentTransIdx].transitSteps.length - 1);
         data[currentTransIdx].transitSteps.splice(insertAt, 0, newStep);
-        localStorage.setItem('schedule', JSON.stringify(data));
+        await saveData('schedule', data);
         renderTransitTimeline(data[currentTransIdx].transitSteps);
     }
 }
 
-function removeTransitStep(stepIdx) {
-    let data = JSON.parse(localStorage.getItem('schedule') || '[]');
+async function removeTransitStep(stepIdx) {
+    let data = await fetchData('schedule', '[]');
     if (data[currentTransIdx] && data[currentTransIdx].transitSteps) {
         data[currentTransIdx].transitSteps.splice(stepIdx, 1);
-        localStorage.setItem('schedule', JSON.stringify(data));
+        await saveData('schedule', data);
         renderTransitTimeline(data[currentTransIdx].transitSteps);
     }
 }

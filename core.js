@@ -71,6 +71,7 @@ function updateCloudStatus(isOnline) {
 /**
  * 統一的資料讀取器 (fetchData)
  */
+// 修正後的 fetchData
 async function fetchData(key, defaultValue = '[]') {
     if (!CLOUD_CONFIG.useCloud) {
         const data = localStorage.getItem(key);
@@ -81,17 +82,15 @@ async function fetchData(key, defaultValue = '[]') {
             .from('trip_data')
             .select('content')
             .eq('key', key)
-            .maybeSingle(); // 1. 注意這裡要用 maybeSingle
+            .maybeSingle();
 
-        if (error) throw error; // 2. 這裡直接拋出真正嚴重的錯誤
+        if (error) throw error;
 
         if (!data) {
-            // 雲端沒資料時的處理
             const local = localStorage.getItem(key);
             return local ? JSON.parse(local) : JSON.parse(defaultValue);
         }
 
-        // 同步回 LocalStorage
         localStorage.setItem(key, JSON.stringify(data.content));
         updateCloudStatus(true);
         return data.content;
@@ -100,7 +99,7 @@ async function fetchData(key, defaultValue = '[]') {
         const local = localStorage.getItem(key);
         return local ? JSON.parse(local) : JSON.parse(defaultValue);
     }
-}        
+}
         updateCloudStatus(true);
         return data.content;
     } catch (e) {

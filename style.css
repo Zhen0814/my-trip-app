@@ -1,0 +1,2409 @@
+/* ==========================================
+   1. 全局變數與基礎設定
+   ========================================== */
+:root {
+    --honey-orange: #EBB06E; 
+    --bg-soft: #FCF8F3;
+    --main-green: #4E6B56; 
+    --dried-rose: #B57B7B;
+    --flight-gradient: linear-gradient(135deg, #E2F0D9 0%, #B6D7A8 100%);
+    --flight-accent: #557A46;
+    --hotel-blue: #D1E9F6;
+    --hotel-white: #FCFBF7;
+    --shadow-coffee: rgba(139, 115, 85, 0.15);
+    --dark-coffee: #4A3F35;
+    --deep-gray: #5D544E;
+    --tag-bg: #E9EDEA; 
+    --header-bg-img: url('https://i.meee.com.tw/YTg8aFq.jpg');
+    --header-bg-pos-y: 50%;
+    --header-bg-scale: 100%;
+    --primary-font: 'Huninn', 'Zen Maru Gothic', sans-serif; /* 將 Huninn 置於首位 */
+    --accent-font: 'Chiron GoRound TC', 'Zen Maru Gothic', sans-serif;
+
+    /* 記帳配色重定義 (計畫書 v2) */
+    --exp-blue: #7298C7;
+    --exp-yellow: #F3D98F;
+    --exp-cream: #FCF8F3;
+    --exp-bg-gray: #F9FAFB;
+    --exp-border: #E5E7EB;
+    --guide-purple: #CABAD7; /* 指南模組高亮色 */
+}
+
+/* 確保所有標題權重適中 */
+.q-zh, .quote-tile-text {
+    font-family: 'Huninn', sans-serif !important;
+    font-weight: 700; /* 粉圓體在 700 時最具備視覺張力 */
+}
+
+* { 
+    -webkit-tap-highlight-color: transparent; 
+    box-sizing: border-box;
+}
+
+html { 
+    scroll-behavior: smooth; 
+    height: 100%;
+}
+
+body { 
+    font-family: var(--primary-font) !important; 
+    font-weight: 500; 
+    background-color: var(--bg-soft); 
+    color: #7D746D; 
+    margin: 0; 
+    padding: 0; 
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased; 
+    -webkit-overflow-scrolling: touch; 
+}
+
+body.auth-locked {
+    overflow: hidden;
+    height: 100vh;
+}
+
+body.no-scroll {
+    overflow: hidden;
+    height: 100%;
+}
+
+/* ==========================================
+   2. Header & 置頂區域
+   ========================================== */
+header { 
+    position: fixed; top: 0; left: 0; right: 0; height: 130px; 
+    z-index: 210 !important; /* 確保層級最高 */
+    background-color: #FFFFFF; 
+    background-image: var(--header-bg-img); 
+    background-size: var(--header-bg-scale) auto; 
+    background-repeat: no-repeat; 
+    background-position: center var(--header-bg-pos-y); 
+    border-radius: 0; 
+    
+    display: flex; 
+    align-items: flex-end; 
+    padding: 0 20px 25px 20px; /* 修改點：將底部 padding 從 20px 增加到 25px，把文字往上推 */
+}
+
+header h1 { 
+    font-size: 1.3rem; font-weight: 700; color: #333; 
+    line-height: 1.2; text-shadow: 0px 0px 8px rgba(255,255,255,1); 
+    z-index: 2; position: relative; 
+}
+
+.user-setting { 
+    position: absolute; top: 15px; left: 20px; z-index: 10; 
+    background: rgba(255,255,255,0.85); padding: 5px 12px; 
+    border-radius: 20px; font-size: 11px; border: 1px solid #EEE; 
+    display: flex; align-items: center; gap: 6px; color: #444; 
+    font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+}
+
+main { 
+    padding: 212px 12px calc(150px + env(safe-area-inset-bottom)) 12px; 
+}
+
+/* --- 註銷按鈕樣式 --- */
+.btn-danger-outline {
+    border: 2px solid #FEE2E2 !important;
+    color: #EF4444 !important;
+    background: transparent;
+}
+.btn-danger-outline:active {
+    background: #FEF2F2 !important;
+    transform: scale(0.98);
+}
+
+/* ==========================================
+   3. 交互反饋與通用按鈕
+   ========================================== */
+.nav-item:active, .add-btn:active, .pill:active, 
+.mini-action-btn:active, .author-pill:active, .day-card:active, .step-tool-btn:active {
+    transform: scale(0.92);
+    opacity: 0.8;
+    transition: transform 0.1s ease;
+}
+
+/* ==========================================
+   4. 分頁導覽列 (Switcher & Nav Bars)
+   ========================================== */
+
+/* 統一修正所有分頁導覽列的縫合邏輯 */
+.day-switcher::before, 
+.exp-nav-bar::before, 
+.prep-nav-bar::before {
+    content: ""; 
+    position: absolute; 
+    top: -15px; 
+    left: 0; 
+    right: 0; 
+    height: 25px; 
+    background: var(--bg-soft); 
+    z-index: -1;
+}
+
+.day-switcher { 
+    display: flex; gap: 6px; overflow-x: auto; padding: 12px 12px 8px 12px; scrollbar-width: none;
+    position: fixed; top: 130px; left: 0; right: 0; 
+    background: var(--bg-soft) !important; z-index: 90;
+    border-bottom: 1.5px solid #E5E1DA;
+}
+.day-switcher::-webkit-scrollbar { display: none; }
+
+.day-card { 
+    flex: 0 0 54px; height: 56px; background: white; border-radius: 14px; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    border: 1.5px solid #F0F0F0; gap: 0; transition: all 0.2s ease;
+}
+.row-1 { font-size: 10px; font-weight: bold; color: #777; }
+.row-2 { font-size: 18px; font-weight: bold; color: #333; line-height: 1; margin: 1px 0; }
+.row-3 { font-size: 8px; font-weight: bold; color: #999; }
+
+.day-card.active { 
+    background: var(--honey-orange); border-color: var(--honey-orange); 
+    box-shadow: 0 4px 10px rgba(235, 176, 110, 0.3); 
+}
+.day-card.active span { color: white !important; }
+
+/* 提升所有分頁導覽列的層級，確保不被解鎖遮罩蓋住 */
+.prep-nav-bar, .exp-nav-bar, .guide-nav-bar, .exp-subtab-bar {
+    z-index: 1500 !important; /* 必須高於 lock-zone */
+    background: var(--bg-soft); /* 確保背景不透明以遮擋下方內容 */
+}
+/* ==========================================
+   5. 行程內容小卡 (Cards) 
+   ========================================== */
+.day-status-bar { 
+    padding: 6px 0; margin-bottom: 8px; font-size: 19px; font-weight: bold; 
+    color: #5D544E; display: flex; align-items: center; 
+}
+.day-status-bar::before { 
+    content: ""; display: inline-block; width: 6px; height: 22px; 
+    background-color: var(--main-green); border-radius: 10px; margin-right: 10px; 
+}
+.editable-title { color: var(--dried-rose); text-decoration: none; padding: 0 4px; outline: none; }
+
+.hotel-card { 
+    background: var(--hotel-white); border-radius: 0px; padding: 13.6px 20px; 
+    margin-bottom: 25.5px; border-left: 8px solid var(--hotel-blue); 
+    display: flex; justify-content: space-between; align-items: center; 
+    box-shadow: 4px 4px 12px var(--shadow-coffee); 
+}
+.hotel-label { font-size: 11px; color: #A59B93; font-weight: bold; margin-bottom: 3.4px; }
+.hotel-name { font-size: 18.7px; font-weight: bold; color: #4A3F35; outline: none; line-height: 1.2; }
+.hotel-addr-box { display: flex; align-items: center; gap: 5.1px; margin-top: 5.1px; }
+.hotel-addr-link { font-size: 12.8px; color: #999; font-weight: 700; text-decoration: underline; outline: none; }
+.hotel-static-icon { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; color: #5D544E; flex-shrink: 0; }
+
+.timeline-container { 
+    position: relative; 
+    padding-left: 60px; 
+    margin-top: 0px; 
+}
+
+.timeline-line { 
+    position: absolute; 
+    left: 6px; 
+    top: 10px; 
+    bottom: 10px; 
+    width: 2px; 
+    border-left: 2px dashed #DDD; 
+    z-index: 1; 
+}
+
+.time-marker-group { 
+    position: absolute; 
+    left: -59px; 
+    top: 0; 
+    width: 50px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    z-index: 15; 
+    background: var(--bg-soft); 
+    padding: 2px 0; 
+}
+
+.attraction-time { font-size: 15px; font-weight: 800; color: var(--deep-gray); height: 18px; line-height: 18px; white-space: nowrap; text-align: center; }
+.time-dot { width: 8px; height: 8px; background-color: var(--dark-coffee); border-radius: 50%; margin-top: 0; }
+
+.event-node { 
+    position: relative; 
+    z-index: 2; 
+    margin-top: 0;
+    margin-bottom: 0; 
+}
+
+.attraction-card { 
+    position: relative; background: white; border-radius: 20px; padding: 18px; 
+    box-shadow: 0 12px 30px rgba(0,0,0,0.1); border: 1px solid #F8F8F8; 
+    cursor: pointer; transition: all 0.3s ease;
+    display: flex; flex-direction: column; 
+}
+.card-main-layout { display: flex; gap: 12px; width: 100%; align-items: flex-start; }
+.attraction-left { flex: 1; min-width: 0; }
+
+.attraction-right-col {
+    width: 80px; 
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    position: relative;
+    z-index: 25; 
+}
+.attraction-thumb-box { 
+    width: 70px; height: 70px; border-radius: 12px; background: #F3F3F3; 
+    display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #F0F0F0;
+}
+.attraction-thumb-box img { width: 100%; height: 100%; object-fit: cover; }
+.attraction-thumb-box span { font-size: 20px; color: #DDD; }
+
+.action-footer-row { display: flex; align-items: center; gap: 4px; width: 100%; justify-content: flex-end; }
+
+.btn-group { 
+    display: flex; 
+    gap: 8px; 
+    position: relative; 
+    z-index: 30; 
+    pointer-events: auto; 
+}
+
+.mini-action-btn { 
+    width: 32px !important;  
+    height: 32px !important; 
+    display: flex; align-items: center; justify-content: center; 
+    background: rgba(0,0,0,0.05) !important; 
+    border: none !important;
+    border-radius: 8px !important; 
+    font-size: 14px !important; 
+    box-shadow: none !important;
+    touch-action: manipulation;
+}
+
+.flight-action-btn {
+    background: rgba(255,255,255,0.3) !important;
+    color: var(--flight-accent) !important;
+}
+
+.author-tag { 
+    font-size: 9px; background: var(--tag-bg); color: var(--dark-coffee); 
+    padding: 2px 6px; border-radius: 5px; font-weight: 700; white-space: nowrap;
+    display: flex; align-items: center; gap: 2px;
+}
+
+.attraction-name { font-size: 21px; font-weight: bold; color: #333; line-height: 1.2; }
+.attraction-addr { 
+    font-size: 14px; font-weight: bold; color: #3B82F6; margin-top: 4px; 
+    text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; word-break: break-all; 
+    min-height: 44px;
+}
+
+.cat-tag-outer { font-size: 12px; padding: 3px 10px; border-radius: 8px; font-weight: bold; width: fit-content; margin-bottom: 6px; }
+.cat-tag-sight { background: #FFF7ED; color: #EA580C; } 
+.cat-tag-food { background: #ECFDF5; color: #059669; }  
+.cat-tag-shop { background: #EFF6FF; color: #2563EB; }  
+.cat-tag-exp { background: #F5F3FF; color: #7C3AED; }
+.cat-tag-hotel { background: #FFF1F2; color: #E11D48; }
+.cat-tag-default { background: #F5F5F5; color: #666666; }
+
+.card-details { max-height: 0; opacity: 0; transition: 0.4s ease-out; overflow: hidden; width: 100%; }
+.expanded .card-details { max-height: 2000px; opacity: 1; border-top: 1px solid rgba(0,0,0,0.05); margin-top: 14px; padding-top: 14px; }
+
+/* ==========================================
+   6. 備註標籤與編輯器 (整合顯示與優化編輯器)
+   ========================================== */
+
+/* --- A. 儲存後的顯示樣式 (修正行高與斷行) --- */
+.note-tag { 
+    font-size: 13px; 
+    margin-bottom: 4px; /* 縮小多條備註之間的間距 */
+    padding: 3px 10px; /* 縮減上下內邊距 */
+    border-radius: 8px; 
+    display: block; 
+    font-weight: 500; 
+    width: fit-content; 
+    max-width: 100%; 
+    white-space: pre-wrap; 
+    word-break: break-all; 
+    line-height: 1.25 !important; /* 極低行高，讓連結跟文字貼在一起 */
+}
+
+/* 針對顏色標籤的微調 */
+.note-tag[class*="note-"] {
+    border-width: 1px !important;
+}
+
+.note-purple { background: #F5F3FF !important; color: #7C3AED !important; border: 1px solid #DDD6FE !important; }
+.note-blue   { background: #EFF6FF !important; color: #2563EB !important; border: 1px solid #DBEAFE !important; }
+.note-yellow { background: #FEFCE8 !important; color: #A16207 !important; border: 1px solid #FEF9C3 !important; }
+.note-red    { background: #FFF1F2 !important; color: #E11D48 !important; border: 1px solid #FFE4E6 !important; }
+.note-green  { background: #F0FDF4 !important; color: #16A34A !important; border: 1px solid #DCFCE7 !important; }
+.note-teal   { background: #F0FDFA !important; color: #0D9488 !important; border: 1px solid #CCFBF1 !important; }
+.note-amber  { background: #FFFBEB !important; color: #D97706 !important; border: 1px solid #FEF3C7 !important; }
+.note-indigo { background: #EEF2FF !important; color: #4F46E5 !important; border: 1px solid #E0E7FF !important; }
+.note-orange { background: #FFF7ED !important; color: #EA580C !important; border: 1px solid #FFEDD5 !important; }
+.note-brown  { background: #FAF7F5 !important; color: #78350F !important; border: 1px solid #EDE9E6 !important; }
+.note-pink   { background: #FDF2F8 !important; color: #DB2777 !important; border: 1px solid #FCE7F3 !important; }
+
+/* --- B. 編輯中的 UI 樣式 (優化與縮小按鈕) --- */
+.note-input-row { 
+    background: #FFFFFF !important; 
+    border: 1px solid #F0F0F0 !important; 
+    border-radius: 16px !important; 
+    padding: 12px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.note-input-v2-row { 
+    display: flex; 
+    gap: 10px; 
+    align-items: flex-start; 
+}
+
+/* 這裡是你要的縮小功能鍵 */
+.note-tool-btn {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: auto !important;
+    min-height: auto !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    background: #F9F9F9;
+    border: 1px solid #EEE;
+    transition: all 0.2s;
+}
+
+/* 這裡是你要的縮小上下箭頭 */
+.note-sort-mini-btn {
+    width: 22px !important;
+    height: 20px !important;
+    min-width: auto !important;
+    padding: 0 !important;
+    font-size: 9px !important;
+    border-radius: 4px !important;
+    background: #F3F3F3 !important;
+    color: #999 !important;
+    border: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.note-textarea-v2 { 
+    flex: 1; 
+    min-height: 50px; 
+    font-size: 15px !important; 
+    border-radius: 12px; 
+    padding: 10px; 
+    border: 1px solid #F0F0F0; 
+    background: #FDFDFD; 
+    outline: none; 
+    line-height: 1.5;
+}
+
+.note-icon-select {
+    width: 44px !important;
+    height: 30px !important;
+    font-size: 16px !important;
+    background: #F9F9F9 !important;
+    border: 1px solid #EEE !important;
+    border-radius: 8px !important;
+    text-align: center;
+}
+
+/* ==========================================
+   7. 飛機票卡
+   ========================================== */
+.flight-stack-container { 
+    display: flex; overflow-x: auto; scroll-snap-type: x mandatory; 
+    scrollbar-width: none; gap: 12px; 
+    padding-bottom: 10px; 
+    margin-bottom: 15px; 
+}
+.flight-stack-container::-webkit-scrollbar { display: none; }
+.flight-stack-item { flex: 0 0 100%; scroll-snap-align: center; }
+
+.flight-ticket-card { 
+    position: relative; background: var(--flight-gradient); border-radius: 16px; 
+    padding: 0; filter: drop-shadow(0 8px 20px rgba(0,0,0,0.08)); 
+    display: flex; overflow: hidden; min-height: 140px; transition: all 0.3s ease;
+    margin-bottom: 25.5px; 
+}
+
+.expanded.flight-ticket-card {
+    margin-bottom: 30px;
+}
+
+.flight-ticket-card::before, .flight-ticket-card::after { 
+    content: ""; position: absolute; right: 22%; width: 20px; height: 20px; 
+    background: var(--bg-soft); border-radius: 50%; z-index: 10; 
+}
+.flight-ticket-card::before { top: -10px; } 
+.flight-ticket-card::after { bottom: -10px; }
+
+.ticket-main { flex: 1; padding: 16px; border-right: 2px dashed rgba(0,0,0,0.1); position: relative; }
+.ticket-stub { width: 22%; background: rgba(255,255,255,0.1); position: relative; display: flex; align-items: flex-end; padding: 10px; }
+.ticket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.airline-info { font-size: 13px; font-weight: 800; color: var(--flight-accent); }
+
+.ticket-body { display: flex; justify-content: space-between; align-items: center; position: relative; padding: 5px 0; }
+.airport-side { text-align: center; display: flex; flex-direction: column; gap: 2px; }
+
+.airport-code { 
+    font-size: 22px !important; 
+    font-weight: 900; 
+    color: #333; 
+    line-height: 1.1; 
+    white-space: nowrap; 
+    letter-spacing: -0.5px;
+}
+.airport-time-sub { font-size: 13px; font-weight: bold; color: var(--flight-accent); opacity: 0.8; }
+
+.path-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 10px; gap: 4px; }
+.flight-no-sub { font-size: 10px; font-weight: 900; color: var(--flight-accent); opacity: 0.6; }
+.duration-sub { font-size: 10px; font-weight: bold; color: var(--flight-accent); opacity: 0.5; }
+
+.path-line-row { width: 100%; position: relative; height: 14px; display: flex; align-items: center; justify-content: center; }
+.path-line { width: 100%; border-top: 1.5px dashed rgba(85, 122, 70, 0.3); }
+.path-plane-icon { position: absolute; background: #C5E0B4; padding: 0 5px; font-size: 14px; color: var(--flight-accent); transform: translateY(-0.5px); }
+
+/* ==========================================
+   8. 導覽列 & 底部按鈕
+   ========================================== */
+.nav-bar { 
+    position: fixed; bottom: 0; left: 0; right: 0; 
+    height: calc(60px + env(safe-area-inset-bottom)); 
+    background: white; border-top: 1px solid #F0F0F0; 
+    display: flex; justify-content: space-around; align-items: flex-start; 
+    z-index: 200; padding: 10px 10px 0 10px;
+    padding-bottom: env(safe-area-inset-bottom); 
+}
+.nav-item { color: #CCC; display: flex; flex-direction: column; align-items: center; flex: 1; cursor: pointer; transition: color 0.2s; min-height: 44px; }
+.nav-item.active { color: var(--honey-orange); font-weight: 700; }
+.nav-item span { font-size: 9px; margin-top: 2px; }
+
+.add-btn { 
+    position: fixed; 
+    bottom: calc(74px + env(safe-area-inset-bottom)); 
+    right: 20px; width: 56px; height: 56px; 
+    background: linear-gradient(135deg, #EBB06E, #FFCC33); color: white; 
+    border-radius: 28px; display: flex; align-items: center; justify-content: center; 
+    font-size: 28px; z-index: 100; box-shadow: 0 4px 12px rgba(235,176,110,0.4); 
+}
+
+/* ==========================================
+   9. 彈窗樣式 (Modals)
+   ========================================== */
+#modal-overlay, #settings-overlay, #expense-modal-overlay { 
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
+    z-index: 1000; align-items: flex-end; 
+    backdrop-filter: blur(4px); 
+}
+
+#modal-content, #settings-content, #expense-modal-content { 
+    background: white; 
+    width: 100%; 
+    border-radius: 30px 30px 0 0; 
+    padding: 0 !important; 
+    max-height: calc(100% - 130px); 
+    overflow-y: auto; 
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+}
+
+#modal-overlay.active, #settings-overlay.active, #expense-modal-overlay.active { display: flex; }
+
+.modal-header-sticky {
+    position: -webkit-sticky; 
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1000;
+    padding: 12px 20px 10px 20px !important;
+    border-bottom: 1px solid #F0F0F0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+}
+
+#modal-content > div:not(.modal-header-sticky), 
+#settings-content > div:not(.modal-header-sticky), 
+#expense-modal-content > div:not(.modal-header-sticky) {
+    padding-left: 25px;
+    padding-right: 25px;
+    padding-bottom: 30px;
+}
+
+.form-label { display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: bold; margin-bottom: 8px; color: #555; }
+.form-input { width: 100%; padding: 12px; border: 1px solid #F0F0F0; border-radius: 12px; background: #F9F9F9; font-size: 16px !important; outline: none; transition: border-color 0.2s; }
+.form-input:focus { border-color: var(--honey-orange); }
+
+.pill { 
+    padding: 6px 11px !important; 
+    border-radius: 12px; 
+    border: 1px solid #EEE; 
+    font-size: 11px !important; 
+    color: #888; 
+    cursor: pointer; 
+    background: white; 
+    transition: all 0.2s; 
+    display: flex; 
+    align-items: center; 
+    gap: 4px; 
+    min-height: 35px !important; 
+}
+.pill.selected { background: var(--honey-orange) !important; border-color: var(--honey-orange) !important; color: white !important; }
+
+.author-selector-box {
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 10px; 
+    width: 100%;
+    padding-top: 5px;
+}
+
+.author-pill { 
+    flex: 0 1 auto; 
+    min-width: 64px !important; 
+    padding: 6px 11px !important; 
+    border-radius: 12px; 
+    border: 1px solid #EEE; 
+    font-size: 11px !important; 
+    color: #888; 
+    cursor: pointer; 
+    background: white; 
+    transition: all 0.2s; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    min-height: 35px !important;
+}
+.author-pill.active { background: var(--honey-orange) !important; border-color: var(--honey-orange) !important; color: white !important; box-shadow: 0 4px 8px rgba(235, 176, 110, 0.2); }
+
+/* ==========================================
+   10. 交通詳情專用
+   ========================================== */
+.transport-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+#transport-pills .pill {
+    height: 38px !important;      
+    padding: 2px;
+    font-size: 11px !important;
+    flex-direction: column; 
+    justify-content: center;
+    gap: 0px; 
+    border-radius: 12px;
+}
+
+.transport-wrapper {
+    clear: both;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    position: relative;
+    z-index: 60;
+    padding: 15px 0; 
+}
+
+.transport-bar {
+    width: 140px; 
+    margin: 0 auto !important; 
+    height: 34px; 
+    background: #FFEDD5; 
+    border-radius: 17px; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid white; 
+    box-shadow: 0 2px 6px rgba(235,176,110,0.15);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 60; 
+    touch-action: manipulation;
+    pointer-events: auto;
+}
+
+.trans-main-row {
+    font-size: 12px;
+    font-weight: 800;
+    color: #D97706; 
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    line-height: 1;
+}
+
+.trans-main-row span { font-size: 14px; }
+
+.trans-time-centered {
+    font-size: 9px;
+    color: #B45309;
+    font-weight: 700;
+    margin-top: 1px;
+}
+
+#trans-detail-overlay {
+    display: none; 
+    position: fixed; 
+    inset: 0; 
+    background: rgba(0,0,0,0.5);
+    z-index: 2050 !important; /* 稍微提升層級，確保在所有導覽列之上 */
+    align-items: center; 
+    justify-content: center; 
+    backdrop-filter: blur(8px);
+    padding: 0 20px;
+    pointer-events: auto !important;
+    
+    /* 新增：減少手機端點擊延遲 */
+    touch-action: manipulation; 
+}
+
+/* 使用 !important 確保覆蓋任何 JS 殘留的 display: none */
+#trans-detail-overlay.active {
+    display: flex !important;
+}
+
+#trans-detail-content {
+    background: white; width: 100%; max-width: 400px; border-radius: 24px;
+    padding: 0; max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    -webkit-overflow-scrolling: touch;
+    pointer-events: auto;
+}
+
+#trans-title { font-size: 16px !important; line-height: 1.2; }
+#trans-subtitle { margin-bottom: 2px !important; }
+
+.copy-btn {
+    background: #F3F4F6; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px;
+    color: #6B7280; margin-left: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s;
+    min-width: 60px; min-height: 30px; display: inline-flex; align-items: center; justify-content: center;
+}
+.copy-btn:active { background: #E5E7EB; transform: scale(0.95); }
+
+.nav-go-btn {
+    background: none !important; border: none !important; color: #3B82F6 !important; 
+    padding: 0 !important; margin: -5px 0 5px 31px !important;
+    display: inline-flex !important; align-items: center; gap: 6px;
+    font-size: 14px; font-weight: 800; text-decoration: underline !important; min-height: 24px;
+}
+.nav-go-btn.disabled { color: #D1D5DB !important; text-decoration: none !important; cursor: not-allowed; pointer-events: none; }
+
+.transit-timeline { position: relative; padding: 2px 10px 10px 20px !important; }
+
+.step-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column; 
+    align-items: flex-start;
+    padding: 0;
+    min-width: 0;
+}
+
+.step-img-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px; 
+    width: 100%;
+}
+
+.step-tool-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px !important;
+    width: 32px;
+    flex-shrink: 0;
+}
+
+.step-img-thumb {
+    width: 55px;
+    height: 55px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid #EEE;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.transit-step-row {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    padding: 6px 0;
+    gap: 2px;
+    position: relative;
+}
+
+.transit-step-row::before {
+    content: ""; position: absolute; left: 7px; top: 15px; bottom: -5px;
+    width: 2px; background: #FFEDD5; z-index: 1;
+}
+.transit-step-row:last-child::before { display: none; }
+
+.step-dot { 
+    flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%; background: white;
+    border: 3px solid var(--honey-orange); z-index: 5; margin-top: 14px; margin-right: 2px;
+}
+
+.transit-step-row.is-highlighted .step-dot {
+    background-color: #EF4444 !important; border-color: #EF4444 !important;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+/* 修改片段 */
+.transit-step-row.is-highlighted .step-action-input {
+    color: #EF4444 !important;
+    font-size: 16px !important;           /* 修正：字體不放大 */
+    font-weight: 800 !important;          /* 僅保持粗體 */
+}
+
+/* 修改片段 */
+.step-content > div.flex {
+    gap: 6px !important;
+    display: flex;
+    width: 100%;
+    align-items: flex-start; /* 修正：改為頂部對齊，防止高度計算時產生偏移 */
+}
+
+.step-tool-btn {
+    flex-shrink: 0; padding: 0; background: none; border: none; font-size: 16px;
+    opacity: 0.2; cursor: pointer; width: 32px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+}
+.step-tool-btn.active { opacity: 1; }
+
+.step-action-input {
+    width: 82px !important; 
+    flex-shrink: 0;
+    font-family: 'Chiron GoRound TC', sans-serif !important; 
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: var(--dark-coffee);
+    border: none;
+    background: transparent;
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    padding: 4px 0 !important; /* 壓縮上下內邊距，減少文字間的空隙 */
+    line-height: 1.4;
+    display: block;
+    margin: 0 !important;
+}
+
+gap: 6px !important;
+    display: flex;
+    width: 100%;
+    align-items: flex-start; /* 改為頂部對齊，防止高度計算時產生偏移 */
+}
+
+.step-action-input, .step-detail-input {
+    overflow: hidden; /* 修正：強制隱藏捲軸，配合 JS autoResize 計算 */
+    height: auto;
+    min-height: 24px;
+}
+
+.step-detail-input {
+    flex: 1; 
+    font-size: 14px !important; 
+    color: #999; 
+    border: none; 
+    background: transparent;
+    outline: none; 
+    resize: none; 
+    overflow: hidden; 
+    padding: 5px 0 !important; /* 壓縮上下內邊距，使其與標題對齊 */
+    line-height: 1.5; 
+    margin: 0 !important;
+    min-width: 0; 
+    display: block;
+}
+
+.step-delete-btn {
+    margin-left: auto; flex-shrink: 0; width: 40px; height: 44px;
+    background: none; border: none; color: #D1D5DB; font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* 1. 修正層級：燈箱必須在所有彈窗之上 */
+.lightbox-overlay {
+    z-index: 5000 !important; /* 確保高於指南彈窗的 4000 */
+}
+
+.lightbox-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(0, 0, 0, 0.9); 
+    backdrop-filter: blur(10px);
+    align-items: center;
+    justify-content: center;
+    touch-action: pinch-zoom; 
+}
+
+.lightbox-overlay.active { display: flex; }
+
+.lightbox-content {
+    width: 90vw;
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#lightbox-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; 
+    border-radius: 4px;
+}
+
+.lightbox-delete-btn {
+    position: absolute;
+    top: calc(20px + env(safe-area-inset-top));
+    right: 20px;
+    background: rgba(255, 59, 48, 0.9);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 50px;
+    font-weight: bold;
+    font-size: 14px;
+    z-index: 3100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* ==========================================
+   11. 網址標籤視覺規範
+   ========================================== */
+.link-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(0,0,0,0.04);
+    color: #444;
+    padding: 0px 5px !important; /* 取消上下 padding */
+    height: 18px; /* 固定高度，不撐開行高 */
+    border-radius: 4px;
+    font-size: 10.5px !important;  
+    text-decoration: none;
+    border: 1px solid rgba(0,0,0,0.08);
+    vertical-align: middle; /* 讓標籤對齊文字中線 */
+    margin: 0px !important; /* 強制取消所有外距 */
+}
+
+.link-pill span {
+    line-height: 1; /* 內部圖示也取消行高撐開 */
+}
+
+/* ==========================================
+   12. 任務 A：全域身份中心專屬樣式
+   ========================================== */
+#identity-overlay {
+    background-image: radial-gradient(var(--honey-orange) 0.5px, transparent 0.5px);
+    background-size: 20px 20px;
+    background-color: #FCF8F3;
+}
+
+#identity-overlay .form-input {
+    background: white;
+    border: 2px solid #F0EAD6;
+    height: 56px;
+    font-size: 18px !important;
+    text-align: center;
+}
+
+#identity-overlay .form-input:focus {
+    border-color: var(--honey-orange);
+    background: #FFF;
+}
+
+/* ==========================================
+   13. 準備清單視覺重構
+   ========================================== */
+.prep-nav-bar {
+    position: fixed !important;
+    top: 130px; 
+    left: 0; 
+    right: 0;
+    height: 52px; 
+    background: var(--bg-soft) !important;
+    z-index: 500 !important; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 修改點：增加左右 12px 的內邊距，讓內容縮進來 */
+    padding: 0 12px; 
+}
+
+/* 2. 修正內容推擠高度 (針對準備頁面) */
+body[data-page="prep"] main {
+    padding-top: 192px !important; /* 130(Header) + 52(Nav) + 10(緩衝) */
+}
+
+.prep-nav-outer {
+    width: 100%;
+    max-width: 400px;
+    height: 44px;
+    background: #FFF;
+    border-radius: 50px;
+    border: 1.5px solid #E5E1DA; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    overflow: hidden;
+}
+
+.prep-nav-scroll {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    align-items: center;
+}
+.prep-nav-scroll::-webkit-scrollbar { display: none; }
+
+.prep-tab {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 800;
+    color: #A59B93; 
+    transition: all 0.2s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.prep-tab.active {
+    background: #B8C897; 
+    color: white !important;
+    box-shadow: 0 2px 6px rgba(124, 179, 91, 0.3);
+}
+
+/* 3. 移除導致重疊的負邊距 */
+.prep-compact-list {
+    padding-top: 0px !important;
+    margin-top: 0px !important; /* 刪除原本的 -10px */
+}
+
+.prep-content-area {
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-bottom: 100px;
+}
+
+.prep-l1-card {
+    background: white;
+    border-radius: 14px;
+    border: 1.5px solid #E5E1DA; 
+    box-shadow: 0 4px 15px rgba(139, 115, 85, 0.1);
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.prep-action-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #FDFDFD;
+    border: 1px solid #F0F0F0;
+    transition: all 0.2s;
+}
+
+.prep-l1-header {
+    padding: 12px 16px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    cursor: pointer;
+}
+
+.prep-l3-item {
+    display: flex; 
+    align-items: center;
+    padding: 8px 0; 
+    gap: 10px;
+    border-top: 1px solid #FDFDFD;
+}
+
+.prep-checkbox {
+    width: 22px; height: 22px; 
+    border: 2px solid var(--honey-orange);
+    border-radius: 7px;
+    background: #FFF;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.prep-checkbox.checked {
+    background-color: var(--honey-orange);
+}
+.prep-checkbox.checked::after {
+    content: "✓"; color: white; font-size: 14px;
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); font-weight: bold;
+}
+
+.prep-l3-text {
+    font-size: 15px; color: #444; font-weight: 500;
+}
+.prep-l3-text.is-done {
+    color: #BBB; text-decoration: line-through;
+}
+
+.prep-inline-input {
+    width: 100%;
+    border: none;
+    background: rgba(0, 0, 0, 0.03); 
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #5D544E !important; 
+    font-weight: 500;
+    outline: none;
+}
+.prep-inline-input::placeholder {
+    color: #A59B93; 
+}
+
+.prep-add-global-btn {
+    width: 100%; padding: 16px; border: 2px dashed #EEE;
+    border-radius: 12px; color: #CCC; font-weight: bold;
+    background: transparent; margin-top: 10px;
+}
+
+.prep-add-btn {
+    width: 32px; height: 32px;
+    flex-shrink: 0;
+    background: white;
+    border: 1.5px dashed var(--honey-orange);
+    color: var(--honey-orange);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    margin: 0 8px;
+}
+
+/* ==========================================
+   14. 記帳模組 (Backplate System)
+   ========================================== */
+
+/* 1. 修正記帳頁面的內容起始推擠高度 (Header + 功能列 + 旅伴列 + 錢包) */
+body[data-page="expense"] main {
+    /* 計算：130(Header) + 52(Nav) + 60(Member) + 68(Stats) = 310px */
+    padding-top: 310px !important; 
+}
+
+/* 1. 藍色導覽列 (層級 200) */
+.exp-nav-bar {
+    position: fixed !important; 
+    top: 130px !important; 
+    left: 0; 
+    right: 0;
+    height: 52px; 
+    background: var(--bg-soft) !important;
+    z-index: 205; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0 !important; /* 確保下方不留白 */
+}
+
+.exp-nav-capsule {
+    background: #FFFFFF !important;
+    border: 1.5px solid var(--exp-yellow) !important;
+    width: calc(100% - 32px) !important;
+    max-width: 400px;
+    height: 42px !important; 
+    padding: 3px !important;
+    border-radius: 50px !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    box-shadow: 0 4px 10px rgba(139, 115, 85, 0.05) !important;
+}
+
+/* --- 2. 成員標籤列 (實心遮斷牆) --- */
+.exp-subtab-bar {
+    /* 1. 核心定位：吸附在 Header + 功能列下方 (130 + 52) */
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 182px !important; 
+    z-index: 300 !important; 
+    
+    /* 2. 空間歸零：徹底消除與上方導覽列的縫隙 */
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 60px !important;
+    
+    /* 3. 視覺遮斷：實心背景防止捲動內容穿透 */
+    background: var(--bg-soft) !important;
+    display: flex !important;
+    align-items: center !important;
+    border-bottom: 1px solid rgba(0,0,0,0.03); /* 加入極細線條增加層次感 */
+}
+
+/* 內部的橫向滾動容器 */
+.exp-subtab-list {
+    display: flex !important;
+    gap: 10px !important;
+    padding: 0 16px !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    scrollbar-width: none; /* 隱藏 Firefox 捲軸 */
+    -webkit-overflow-scrolling: touch; /* 手機端平滑滑動 */
+}
+
+/* 隱藏 Chrome/Safari 捲軸 */
+.exp-subtab-list::-webkit-scrollbar { 
+    display: none !important; 
+}
+
+/* 4. 內容區推擠：確保首筆資料不被蓋住 */
+body[data-page="expense"] main {
+    /* Header(130) + 功能列(52) = 182px */
+    /* 膠囊列會佔用內容區高度，故推擠 182px 即可 */
+    padding-top: 182px !important; 
+}
+
+/* 統一指南頁面旅伴列容器 */
+#guide-private-zone .exp-subtab-bar {
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 182px !important; 
+    z-index: 300 !important; 
+    background: var(--bg-soft) !important;
+    height: 60px !important;
+    display: flex !important;
+    align-items: center;
+    /* 這裡關鍵：對齊準備頁面的 12px 縮進 */
+    padding: 0 12px !important; 
+    margin: 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* --- 3. 支出統計票卡 (手機端強制更新版) --- */
+#exp-stats-card {
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 242px !important; /* 吸附在旅伴列(182 + 60)下方 */
+    z-index: 290 !important; /* 層級略低於旅伴列 */
+    background: #FFF !important;
+    /* 保持原有的視覺樣式 */
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-end !important;
+    margin: 0 12px 15px 12px !important; /* 修正：將上外距設為0，避免吸附時出現縫隙 */
+    padding: 12px 18px !important;
+    border: 1.5px solid #F3D98F !important;
+    border-radius: 14px !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
+    pointer-events: none; /* 讓統計卡本體不攔截點擊 */
+}
+
+#exp-stats-total {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+}
+
+.stats-row {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 8px !important; /* 控制幣別與數字的距離，越小越近 */
+}
+
+/* 幣別標籤 (例如 NT$) */
+.stats-row span:first-child {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #8E867E !important;
+    /* 刪除了 min-width，數字會直接跟在幣別後面 */
+}
+
+/* 數字金額 */
+.stats-num {
+    font-size: 22px !important;
+    font-weight: 900 !important;
+    color: #4E6B56 !important;
+}
+
+/* 右側筆數 */
+#exp-stats-count {
+    font-size: 11px !important;
+    color: #EBB06E !important;
+    font-weight: 800 !important;
+}
+
+/* --- 4. 徹底清除所有舊的背板補丁 --- */
+#exp-stats-card::before, 
+#exp-stats-card::after,
+.exp-subtab-bar::before,
+.exp-subtab-bar::after {
+    content: none !important;
+    display: none !important;
+}
+
+/* 5. 清除可能干擾的邊距 */
+#exp-details-zone {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 80px;
+}
+
+.exp-content-wrapper {
+    margin-top: 0 !important; /* 移除原本的 -10px，讓它自然靠攏 */
+}
+
+/* 記帳輸入框 (Entry Zone) 頂部也確保無多餘間距 */
+#exp-entry-zone {
+    margin: 12px !important; /* 維持四周適度留白，但不要被推遠 */
+}
+
+/* 記帳列表佈局優化 */
+.ledger-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #F9FAFB;
+}
+
+.ledger-row:last-child {
+    border-bottom: none;
+}
+
+/* 建立右側動作組容器 */
+.ledger-right-group {
+    display: flex;
+    align-items: center;
+    gap: 6px; 
+    flex-shrink: 0; /* 確保右側群組不會被擠壓 */
+}
+
+/* 2. 移除金額的最小寬度限制，改為自適應緊湊佈局 */
+.ledger-price { 
+    text-align: right;
+    font-size: 15px; 
+    font-weight: 800;  
+    color: var(--exp-blue);
+    white-space: nowrap; /* 確保金額不會斷行 */
+    margin-right: 2px; /* 與照片之間的小留白 */
+    display: flex; /* 讓數字與幣別單位對齊更好看 */
+    align-items: baseline;
+    justify-content: flex-end;
+}
+/* 3. 微調照片縮圖的大小與外距 */
+.ledger-receipt-thumb, .ledger-receipt-btn {
+    width: 30px !important; /* 稍微縮小一點點 */
+    height: 30px !important;
+    margin-right: 0 !important; /* 清除舊的外距 */
+    flex-shrink: 0;
+}
+
+/* 4. 微調刪除按鈕的大小 */
+.ledger-delete-btn {
+    display: flex !important;
+    flex-shrink: 0 !important; /* 禁止被縮小 */
+    width: 28px !important;
+    height: 28px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-left: 4px;
+}
+
+/* 刪除按鈕美化 */
+.ledger-delete-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFF1F2; 
+    color: #E11D48;      
+    border-radius: 50%;
+    font-size: 12px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.ledger-delete-btn:active {
+    transform: scale(0.9);
+    background: #FFE4E6;
+}
+
+.exp-amount-grid {
+     display: grid;
+    /* 修改點：從 1fr 1fr 48px 改為 1fr 1fr，讓兩個框框平分空間 */
+    grid-template-columns: 1fr 1fr; 
+    gap: 12px; /* 稍微增加間距讓畫面更平衡 */
+    align-items: end;
+}
+
+.exp-camera-btn {
+    width: 48px;
+    height: 40px;
+    background: #F3F4F6;
+    border: 1px solid var(--exp-border);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.exp-camera-btn:active {
+    background: #E5E7EB;
+    transform: scale(0.95);
+}
+
+#ev2-receipt-preview { display: none !important; }
+
+.exp-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: #A59B93 !important;
+    border-radius: 50px !important;
+    transition: all 0.2s ease;
+}
+
+.exp-nav-item.active {
+    background: var(--exp-blue) !important; 
+    color: white !important;
+}
+
+.exp-subtab-list {
+    display: flex;
+    gap: 8px;
+    padding: 0 12px;
+}
+
+/* 統一旅伴按鈕：適用於記帳與指南 */
+.exp-subtab {
+    flex: 0 0 auto !important;
+    padding: 8px 18px !important;
+    background: #FFFFFF !important;
+    border: 1.5px solid #EDE0D4 !important;
+    border-radius: 50px !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: #B08968 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+/* 需求修正：統一的高亮色並將字體改為白色 */
+.exp-subtab.active, 
+#guide-private-zone .exp-subtab.active {
+    background-color: #E1C4C4 !important; /* 目前的高亮背景色 */
+    border-color: #E1C4C4 !important;    
+    color: #FFFFFF !important;           /* 修正點：文字改為純白 */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 6. 明細行與卡片視覺 */
+.exp-day-card {
+    background: #FFF;
+    border-radius: 18px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    border: 1px solid #EEE;
+    box-shadow: 0 2px 10px rgba(139, 115, 85, 0.05);
+}
+
+.exp-day-header {
+    padding: 14px 16px;
+    background: #FAFAFA;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid #F9F9F9;
+    transition: background-color 0.1s ease;
+}
+
+.exp-day-header:active {
+    background-color: #F3D98F !important;
+}
+
+.exp-day-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #5D544E;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.exp-day-sum {
+    font-size: 12px;
+    font-weight: 700;
+    color: #7298C7;
+}
+
+.exp-day-body {
+    padding: 0 16px;
+}
+
+.exp-day-body.collapsed {
+    display: none;
+}
+
+#exp-entry-zone {
+    background-color: white;
+    border-radius: 20px !important;
+    padding: 10px 14px !important; 
+    border: 1px solid rgba(243, 217, 143, 0.4) !important;
+    box-shadow: 0 8px 20px rgba(114, 152, 199, 0.1) !important;
+}
+
+.exp-field-group {
+    margin-bottom: 6px !important; 
+}
+
+.exp-field-label {
+    font-size: 11px; 
+    font-weight: 800;
+    color: #9CA3AF;
+    margin-bottom: 3px; 
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.exp-big-input {
+    background: #F8FAFC !important; 
+    border: 1px solid var(--exp-border);
+    border-radius: 10px !important;
+    padding: 8px 12px !important; 
+    width: 100%;
+    font-size: 16px !important; 
+    font-weight: 700 !important; 
+    color: #1F2937;
+    outline: none;
+    min-height: 40px !important; 
+    transition: all 0.2s;
+}
+
+.exp-big-input:focus {
+    border-color: var(--exp-blue);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(114, 152, 199, 0.1);
+}
+
+.ledger-note { 
+    font-size: 17px !important; 
+    font-weight: 800 !important; 
+    color: #4A3F35; 
+}
+
+.ledger-meta { 
+    font-size: 10px; 
+    color: #8E867E !important;
+    margin-top: 2px; 
+    font-weight: 500;
+}
+
+.ledger-receipt-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #F3F4F6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin-right: 8px;
+    border: 1px solid #EEE;
+}
+
+.ledger-receipt-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+    margin-right: 8px;
+    border: 1px solid var(--exp-blue);
+}
+
+.exp-confirm-btn {
+    width: 100% !important; 
+    margin: 8px 0 0 0 !important;
+    padding: 10px !important;
+    background: var(--exp-blue) !important;
+    color: white;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 15px !important;
+    border: none;
+    box-shadow: 0 4px 10px rgba(114, 152, 199, 0.2) !important;
+    cursor: pointer;
+}
+
+.exp-option-btn {
+    background: white;
+    border: 1px solid #EEE !important;
+    border-radius: 12px !important;
+    padding: 6px 0 !important;
+    text-align: center;
+    font-size: 12px !important;
+    font-weight: 700;
+    color: #6B7280;
+    cursor: pointer;
+}
+
+.exp-option-btn.active {
+    border-color: var(--exp-blue) !important;
+    color: var(--exp-blue) !important;
+    background: rgba(114, 152, 199, 0.05) !important;
+}
+
+.exp-member-pills {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.exp-member-pill {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--exp-bg-gray);
+    border: 1px solid var(--exp-border);
+    padding: 4px 10px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    font-weight: 600;
+}
+
+.exp-member-pill.active {
+    background: var(--exp-blue) !important;
+    color: white;
+    border-color: var(--exp-blue) !important;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.add-btn.hidden {
+    display: none !important;
+}
+
+/* ==========================================
+   15. 指南模組 (Guide Module)
+   ========================================== */
+
+/* A. 頁面層級覆蓋：確保指南內容不被兩層固定導覽列蓋住 */
+body[data-page="guide"] main {
+    padding-top: 182px !important; /* Header(130) + 導覽條(52) */
+}
+
+/* 1. 紫色導覽列 (層級 205) */
+.guide-nav-bar {
+    position: fixed !important; 
+    top: 130px !important; 
+    left: 0; 
+    right: 0;
+    height: 52px; 
+    background: var(--bg-soft) !important;
+    z-index: 205; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.guide-nav-capsule {
+    background: #FFFFFF !important;
+    border: 1.5px solid var(--guide-purple) !important;
+    width: calc(100% - 32px) !important;
+    max-width: 400px;
+    height: 42px !important; 
+    padding: 3px !important;
+    border-radius: 50px !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    box-shadow: 0 4px 10px rgba(139, 115, 85, 0.05) !important;
+}
+
+.guide-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: #A59B93 !important;
+    border-radius: 50px !important;
+    transition: all 0.2s ease;
+}
+
+.guide-nav-item.active {
+    background: var(--guide-purple) !important; 
+    color: white !important;
+}
+
+/* 1. 重置包裝層，確保沒有額外間距 */
+.guide-content-wrapper {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* 2. 修正成員標籤列的置頂邏輯 */
+#guide-private-zone .exp-subtab-bar {
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 182px !important; 
+    z-index: 100;
+    background: var(--bg-soft) !important; 
+    height: 60px !important;
+    display: flex !important;
+    align-items: center;
+    /* 這裡也要增加 12px 縮進，與準備/記帳頁面同步 */
+    padding: 0 12px !important; 
+    margin: 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* 確保成員按鈕不會被壓扁 */
+#guide-member-list {
+    display: flex !important;
+    flex-wrap: nowrap !important; /* 禁止換行 */
+    gap: 8px;
+    padding: 0 16px !important;
+    width: 100%;
+}
+
+#guide-member-list .exp-subtab {
+    flex-shrink: 0 !important; /* 防止寬度變成 0 */
+    min-width: 80px;
+    text-align: center;
+    justify-content: center;
+}
+
+/* 3. 確保私人內容區域有足夠空間，不被置頂列蓋住 */
+#guide-private-content {
+    padding-top: 10px; /* 給予成員標籤列下方一點點呼吸空間 */
+}
+
+/* 搜尋列基礎視覺 */
+.guide-search-input::placeholder { color: #BBB; font-weight: 500; }
+
+/* --- 指南新配色系統 --- */
+:root {
+    --g-indigo: #22223B;  /* Space Indigo - 文字與深色標題 */
+    --g-grape: #4A4E69;   /* Dusty Grape - 圖示或次要背景 */
+    --g-silk: #C9ADA7;    /* Almond Silk - 方格主色 */
+    --g-parchment: #F2E9E4; /* Parchment - 頁面底色或淡背景 */
+    --g-ash: #9A8C98;     /* Lilac Ash - 邊框或輔助色 */
+}
+
+/* --- 指南模組：三欄式比例瓷磚 (7:3) --- */
+/* --- 指南模組：三欄式正方瓷磚 (精確對齊版) --- */
+.guide-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); 
+    column-gap: 10px;   /* 方格之間的間距 */
+    row-gap: 15px;      /* 上下行之間的間距 */
+    padding: 10px 16px 40px 16px; /* 左右 16px 確保對齊膠囊列邊緣 */
+    background: var(--bg-soft);
+}
+
+.guide-tile {
+    aspect-ratio: 1 / 1 !important; /* 強制完美正方形 */
+    background-color: white;
+    /* 框線顏色由您自行調整的部分請保留，以下僅為結構設定 */
+    border-radius: 18px; 
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    transition: transform 0.1s ease;
+}
+
+/* 上半部：照片/圖示區 (調整為約 60%) */
+.tile-top {
+    flex: 7; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #E9ECEF;
+    overflow: hidden;
+}
+
+.tile-top img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 上半部：無圖片時的文字 (字體放大) */
+.tile-no-img-text {
+    font-size: 36px; /* 從 20px 顯著放大 */
+    font-weight: 900;
+    opacity: 0.3;
+}
+
+/* 下半部：標題區 (調整為約 40%) */
+.tile-bottom {
+    flex: 3;
+    background-color: #FFFFFF;
+    padding: 4px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 這裡可以保留您調整的 border-top 顏色 */
+}
+
+.tile-title {
+    font-size: 13.5px; /* 從 10.5px 放大，更易閱讀 */
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    word-break: break-all;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* 限制兩行，防止正方形破裂 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* 修改無圖標題：稍微縮小避免搶走下方標題重點 */
+.guide-tile-no-img {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F1F3F5;
+    color: #9A8C98; /* 使用較淡的紫色 (var--g-ash) */
+    font-size: 15px; /* 稍微縮小 */
+    font-weight: 900;
+    padding: 8px;
+    text-align: center;
+}
+
+/* 讓無圖方格下方的標題文字消失（因為已經在中心顯示了） */
+.tile-title.opacity-0 {
+    visibility: hidden;
+}
+
+/* 指南 Grid 的上下間距微調 */
+.guide-grid {
+    padding-top: 5px !important;
+}
+
+/* 燈箱細節同步紫色 */
+#g-detail-title {
+    color: #916DD5 !important;
+}
+.guide-float-modal {
+    border: 2px solid #916DD5 !important;
+}
+
+/* 強化方格刪除按鈕 (紅色叉叉) */
+.guide-tile-delete-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 32px;  /* 增加尺寸 */
+    height: 32px; /* 增加尺寸 */
+    background: #FF4D4F; /* 使用更鮮豔的紅色 */
+    color: white;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid white; /* 增加白邊框與底層區隔 */
+    box-shadow: 0 4px 12px rgba(255, 77, 79, 0.4); /* 增加紅色發光感 */
+    z-index: 50;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.guide-tile-delete-btn:active {
+    transform: scale(0.8);
+    background: #D32F2F;
+}
+
+/* 讓管理模式的方格邊框更明顯 */
+.guide-tile.managing-border {
+    border: 2.5px solid #CABAD7 !important;
+}
+
+/* 指南設定彈窗動畫 */
+#tile-settings-overlay.flex {
+    display: flex !important;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 預覽圖片強制 1:1 */
+#tile-img-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 針對輸入框的手機端優化 */
+#edit-tile-title {
+    -webkit-appearance: none;
+    font-size: 16px !important; /* 防止 iOS 自動縮放 */
+}
+
+/*換行保留與文字樣式 */
+.guide-read-text {
+    white-space: pre-wrap !important; /* 強制保留 \n */
+    word-break: break-all;
+    line-height: 1.5;
+    font-size: 15px;
+    color: #4B5563;
+    margin: 0 !important; /* 消除文字塊外距 */
+}
+
+.guide-block-item {
+    padding: 2px 0 !important; /* 從 10px 縮小到 2px */
+    border-bottom: 1px solid rgba(0,0,0,0.02);
+}
+
+.guide-block-item:last-child {
+    border-bottom: none;
+    padding-bottom: 100px;
+}
+
+/* 標題樣式優化 */
+.guide-read-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #22223B;
+    border-left: 4px solid #CABAD7;
+    padding-left: 12px;
+    margin: 0 0 2px 0 !important; /* 徹底消除標題下方外距 */
+}
+
+/* 編輯態樣式：去除邊框，讓視覺像直接改字 */
+.guide-edit-title {
+    width: 100%;
+    font-size: 18px !important;
+    font-weight: 800;
+    color: #22223B;
+    border: none;
+    background: transparent;
+    outline: none;
+}
+
+.guide-edit-text {
+    width: 100%;
+    font-size: 15px !important;
+    line-height: 1.6;
+    color: #4B5563;
+    border: none;
+    background: transparent;
+    outline: none;
+    resize: none;
+    overflow: hidden;
+}
+
+/* 3. 唯讀模式縮圖 (小方塊) */
+.guide-read-img-preview {
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 12px;
+    object-fit: cover !important;
+    border: 1px solid #EEE;
+    margin: 8px 0;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.guide-read-img-preview:active {
+    transform: scale(0.95);
+}
+
+/* 4. 特殊控制：當燈箱被標記為 guide-mode 時隱藏刪除鈕 */
+.lightbox-overlay.guide-mode .lightbox-delete-btn {
+    display: none !important;
+}
+
+/* 徹底壓縮指南詳情標題與內容的間距 */
+#guide-detail-overlay .px-6.py-5 {
+    padding-top: 15px !important;
+    padding-bottom: 8px !important; /* 壓縮標題下方 */
+}
+
+#g-blocks-container {
+    padding-top: 0 !important; /* 內容區頂部歸零，緊貼標題線 */
+}
+
+/* 底部工具列滑入動畫 */
+.animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+/* 指南編輯區塊的排序小箭頭樣式 */
+.guide-sort-btn {
+    width: 24px !important;
+    height: 20px !important;
+    background: #F3F3F3 !important;
+    color: #999 !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-size: 10px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.guide-sort-btn:active { background: #EEE !important; }
+
+/* ==========================================
+   補回：個人清單 (Private Zone) 專屬樣式
+   ========================================== */
+/* 確保指南頁面的私人間距正確 */
+#guide-private-zone {
+    position: relative;
+    width: 100%;
+}
+
+/* --- 指南成員膠囊列：強制顯示修復 --- */
+#guide-private-zone .exp-subtab-bar {
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 182px !important; 
+    z-index: 100;
+    background: var(--bg-soft) !important; /* 必須有實心背景色，捲動時才不會看到下方文字 */
+    height: 60px !important;
+    display: flex !important;
+    align-items: center;
+    padding: 0 16px !important;
+    margin: 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* 這是放按鈕的真正容器，強制寬度與捲動 */
+#guide-member-list.exp-subtab-list {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    width: 100% !important;
+    height: 40px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap !important; /* 防止換行 */
+}
+
+/* 確保按鈕本身有顏色且不會縮小 */
+#guide-private-zone .exp-subtab {
+    flex: 0 0 auto !important; 
+    padding: 8px 18px !important;
+    background: #FFFFFF !important;
+    border: 1.5px solid #EDE0D4 !important;
+    border-radius: 50px !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: #B08968 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 內容區域也要確保不會被固定列蓋住 */
+#guide-private-content {
+    min-height: 100vh;
+    padding-bottom: 100px;
+}
+
+#guide-private-content .guide-grid {
+    padding-top: 15px !important;
+}
+
+/* --- style.css 統一私人鎖定樣式 --- */
+
+/* --- 統一解鎖頁面視覺 (精簡版) --- */
+.lock-zone {
+    position: relative;
+    z-index: 100; /* 低於導覽列的 1500 */
+    pointer-events: auto;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.lock-card {
+    background: white;
+    width: 90% !important;
+    max-width: 360px !important;
+    padding: 35px 25px !important; /* 增加上下內距 */
+    border-radius: 30px !important; /* 更圓潤的圓角 */
+    text-align: center;
+    box-shadow: 0 15px 40px rgba(139, 115, 85, 0.1) !important; /* 更柔和的投影 */
+    border: 1px solid rgba(0,0,0,0.02) !important;
+}
+
+/* 3. 提升膠囊列層級，確保捲動時永遠在最上方且可點擊 */
+.prep-nav-bar, .exp-subtab-bar, .guide-nav-bar {
+    z-index: 500 !important;
+}
+
+.lock-card .lock-emoji {
+    font-size: 50px !important;
+    margin-bottom: 15px !important;
+    display: block;
+}
+
+.lock-card .lock-title {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    color: #22223B !important; /* 深色標題 */
+    margin-bottom: 8px !important;
+}
+
+.lock-subtitle {
+    font-size: 13px !important;
+    color: #A59B93 !important; /* 淺灰色副標 */
+    margin-bottom: 25px !important;
+    font-weight: 500;
+}
+
+.lock-input {
+    width: 100%;
+    height: 52px !important;
+    background: #FDFDFD !important;
+    border: 1.5px solid #F0F0F0 !important;
+    border-radius: 16px !important;
+    text-align: center;
+    font-size: 16px !important;
+    margin-bottom: 20px !important;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.lock-input:focus {
+    border-color: #B8C897 !important; /* 準備頁配色焦點線 */
+    background: white !important;
+}
+
+.lock-btn {
+    width: 100%;
+    height: 44px;
+    background: var(--honey-orange); /* 統一使用主橘色 */
+    color: white;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 14px;
+    border: none;
+    transition: transform 0.1s;
+}
+
+/* 準備頁面專用綠色按鈕 */
+.prep-lock-btn {
+    width: 100%;
+    height: 52px;
+    background-color: #B8C897 !important; /* 準備頁面主綠色 */
+    color: white !important;
+    border-radius: 16px !important;
+    font-weight: 800 !important;
+    font-size: 16px !important;
+    border: none !important;
+    box-shadow: 0 8px 15px rgba(184, 200, 151, 0.3) !important;
+    active: transform: scale(0.96);
+}
+
+/* 記帳頁面專用藍色按鈕 */
+.exp-lock-btn {
+    width: 100%;
+    height: 52px;
+    background-color: var(--exp-blue) !important; /* 使用記帳藍 #7298C7 */
+    color: white !important;
+    border-radius: 16px !important;
+    font-weight: 800 !important;
+    font-size: 16px !important;
+    border: none !important;
+    box-shadow: 0 8px 15px rgba(114, 152, 199, 0.3) !important; /* 藍色系的投影 */
+    transition: transform 0.1s;
+}
+
+.exp-lock-btn:active {
+    transform: scale(0.96);
+}
+
+/* 針對記帳分頁下的輸入框焦點顏色 */
+body[data-page="expense"] .lock-input:focus {
+    border-color: var(--exp-blue) !important;
+}
+
+
+/* 修改點：指定 ID 並加上 !important，以獲得最高優先權蓋過原本的 flex */
+#exp-stats-card.force-hide {
+    display: none !important;
+}
+
+/* 針對記帳頁面的特殊上移 (如果統計卡還在，強制蓋過去) */
+body[data-page="expense"] .lock-zone {
+    margin-top: -20px !important;
+}
+
+
+/* 指南頁面專用紫色按鈕 */
+.guide-lock-btn {
+    width: 100%;
+    height: 52px;
+    background-color: #CABAD7 !important; /* 使用指南紫 */
+    color: white !important;
+    border-radius: 16px !important;
+    font-weight: 800 !important;
+    font-size: 16px !important;
+    border: none !important;
+    box-shadow: 0 8px 15px rgba(202, 186, 215, 0.3) !important;
+    transition: transform 0.1s;
+}
+
+.guide-lock-btn:active {
+    transform: scale(0.96);
+}
+
+/* 針對指南分頁下的輸入框焦點顏色 */
+body[data-page="guide"] .lock-input:focus {
+    border-color: #CABAD7 !important;
+}
+
+/* 確保所有彈窗 overlay 在 HTML 結構最上層 */
+#guide-detail-overlay, #trans-detail-overlay, #modal-overlay {
+    z-index: 2000 !important;
+}
+
+/* 行動端點擊穿透修復 */
+.nav-item, .exp-subtab, .prep-tab, .guide-tile {
+    touch-action: manipulation;
+    cursor: pointer;
+}
+
+/* 針對準備頁面與指南頁面，將解鎖區域強制上移緊貼旅伴列 */
+body[data-page="prep"] .lock-zone,
+body[data-page="guide"] .lock-zone {
+    padding-top: 5px !important; /* 縮減頂部內距，使其靠近膠囊列 */
+    margin-top: 0 !important;
+}
+
+/* 確保記帳頁面維持原位 (維持原本設定，不做額外壓縮) */
+body[data-page="expense"] .lock-zone {
+    margin-top: -20px !important; /* 這是您原本為了避開統計卡所做的位移，予以保留 */
+}
+
+/* 拖拽中的方格樣式 */
+.guide-tile.is-dragging {
+    z-index: 500 !important;
+    opacity: 0.9;
+    transform: scale(1.08);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    transition: none !important; /* 隨手指移動時不使用過渡，避免延遲 */
+    pointer-events: none; /* 防止觸摸事件被自己攔截 */
+}
+
+/* 排序交換時的平滑位移 */
+.guide-grid > .guide-tile {
+    transition: transform 0.25s cubic-bezier(0.2, 0, 0.2, 1), opacity 0.2s;
+}
+
+/* 短句模組專屬樣式 */
+:root {
+    --quote-pink: #d5a6bd;
+}
+
+/* 1. 情境方格字體放大 */
+.quote-tile-text {
+    font-size: 17px !important;
+    font-weight: 900;
+    color: #4A3F35;
+    line-height: 1.3;
+}
+
+/* 2. 修正短句頁面推擠高度 */
+body[data-page="quotes"] main {
+    padding-top: 130px !important; /* 直接緊貼 Header */
+}
+
+/* 3. 頂部功能列置頂邏輯 */
+.quote-sticky-bar {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 130px; 
+    z-index: 100;
+    background: var(--bg-soft);
+    padding: 12px 16px;
+    margin: 0 -12px; /* 抵消 main 的 padding 讓背景滿版 */
+}
+
+/* 4. 新增短句專屬彈窗樣式 (比照行程彈窗) */
+#quote-cat-modal-overlay, #quote-phrase-modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
+    z-index: 2500; align-items: flex-end; backdrop-filter: blur(4px); 
+}
+
+/* 修正彈窗顯示優先權 */
+#quote-cat-modal-overlay.active, 
+#quote-phrase-modal-overlay.active { 
+    display: flex !important; 
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* 搜尋命中發光動畫 */
+@keyframes quote-glow-pulse {
+    0% { box-shadow: 0 0 0px #d5a6bd; border-color: #d5a6bd; transform: scale(1); }
+    50% { box-shadow: 0 0 20px rgba(213, 166, 189, 0.8); border-color: #d5a6bd; transform: scale(1.03); }
+    100% { box-shadow: 0 0 0px #d5a6bd; border-color: #d5a6bd; transform: scale(1); }
+}
+
+.quote-hit { 
+    animation: quote-glow-pulse 1.5s infinite ease-in-out !important;
+    border: 2px solid #d5a6bd !important;
+    background: #fff;
+}
+
+/* 短句卡片樣式 */
+.quote-tile {
+    background: white; border: 1.5px solid var(--quote-pink);
+    border-radius: 18px; aspect-ratio: 1/1; display: flex;
+    align-items: center; justify-content: center; text-align: center;
+    font-weight: 800; color: #4A3F35; padding: 10px; transition: all 0.3s;
+}
+
+/* 手風琴文字排版 */
+.q-zh { font-size: 19px !important; font-weight: 900; color: #4A3F35; }
+.q-ko { font-size: 15px !important; font-weight: 800; color: #EBB06E; display: flex; align-items: center; gap: 6px; }
+.q-pron { font-size: 11px !important; font-weight: 500; color: #A59B93; margin-top: 2px; }
+.q-en { font-size: 15px !important; font-weight: 500; color: #8E867E; margin-top: 6px; border-top: 1px dashed #F0F0F0; padding-top: 4px; }
+
+.q-detail-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+.q-detail-content.expanded {
+    max-height: 300px;
+    padding-bottom: 8px !important; /* 從 15px 縮減到 8px */
+}
+
+/* 韓文與發音同框樣式 */
+.q-ko-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0px !important; /* 徹底取消間距，靠行高對齊 */
+    margin-bottom: 4px !important; /* 從 8px 縮減 */
+}
+
+.q-ko-main {
+    font-size: 20px !important; /* 放大韓文 */
+    font-weight: 900;
+    color: #d5a6bd; /* 僅保留顏色 */
+}
+
+.q-pron-main {
+    font-size: 12px !important; /* 放大發音 */
+    font-weight: 700;
+    color: #A59B93;
+    font-style: normal !important; /* 移除斜體 */
+}
+
+.q-en-main {
+    font-size: 16px !important; /* 稍微縮小一點更緊湊 */
+    font-weight: 500;
+    color: #7D746D;
+    margin-top: 2px !important; /* 從 4px 縮減 */
+    border-top: 1px solid rgba(0,0,0,0.08); /* 使用更淡的線條 */
+    padding-top: 2px !important;
+}
+
+/* 4. 刪除按鈕區域壓縮 */
+.q-detail-content .text-right {
+    margin-top: 4px !important;
+}
+
+/* 3. 仿方格樣式的新增按鈕 */
+.phrase-add-tile {
+    width: 100%;
+    height: 60px;
+    border: 2px dashed #EEE;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #CCC;
+    font-size: 20px;
+    margin-top: 10px;
+}
+
+/* --- 雲端版專屬視覺 --- */
+#cloud-status {
+    transition: all 0.3s ease;
+}
+
+#status-dot.online {
+    background-color: #10B981; /* 綠色 */
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+#status-dot.offline {
+    background-color: #EF4444; /* 紅色 */
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* 為了防止雲端同步時點擊到下方按鈕 */
+#global-loader {
+    pointer-events: auto;
+}

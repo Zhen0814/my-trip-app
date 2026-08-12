@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 標準化視口：防止縮放，適配螢幕寬度 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- WebApp 環境設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="我要出去玩">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>我要出去玩</title>
+    
+    <!-- 引入字體：Zen Maru Gothic (日系粉圓風格) 與 Chiron GoRound TC (交通標題專用) -->
+    <!-- 引入字體：Zen Maru Gothic、Huninn 與 Chiron GoRound TC (交通標題專用) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Huninn&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@chiron-fonts/chiron-go-round-tc@1.0.0/dist/webfont.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- 強制覆蓋全域字體為 Huninn -->
+    <style>
+        body, input, button, textarea, select, .editable-title, .hotel-name, .attraction-name, .exp-big-input {
+            font-family: 'Huninn', sans-serif !important;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* 針對粉圓體特性的優化：Medium (500) 為最推薦的閱讀字重 */
+        body {
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+        /* 修正輸入框內文字的字重，讓它看起來更清爽 */
+        input::placeholder {
+            font-weight: 400;
+            opacity: 0.6;
+        }
+        .text-xs, label, span {
+            letter-spacing: 0.03em;
+        }
+    </style>
+</head>
+<body class="">
+
+    <!-- 身份攔截遮罩層：最高優先權 z-index -->
+    <div id="identity-overlay" class="fixed inset-0 z-[3000] bg-[#FCF8F3] flex flex-col items-center justify-center p-8 hidden">
+        <div class="w-full max-w-sm text-center">
+            <div class="mb-8">
+                <div class="w-20 h-20 bg-orange-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#EBB06E" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">建立旅伴身份</h2>
+                <p class="text-[10px] text-orange-400 mt-2 font-bold italic">＊本專案採裝置儲存，遺失密碼將無法存取資料</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="text-left">
+                    <label class="text-xs font-bold text-gray-400 ml-2 mb-1 block" for="reg-nickname">旅伴暱稱</label>
+                    <input id="reg-nickname" type="text" placeholder="例如：小明" class="form-input">
+                </div>
+                <div class="text-left">
+                    <label class="text-xs font-bold text-gray-400 ml-2 mb-1 block" for="reg-password">存取密碼</label>
+                    <input id="reg-password" type="password" placeholder="建議 4 位數字" class="form-input">
+                </div>
+                <button onclick="auth.register()" class="w-full py-4 bg-[#4A3F35] text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-transform mt-4">開始使用</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. 置頂 Header -->
+    <header id="header-bg">
+        <!-- 雲端連線狀態指示燈 -->
+        <div id="cloud-status" class="absolute top-4 right-12 flex items-center gap-1.5 px-2 py-1 bg-white/80 rounded-full border border-gray-100 shadow-sm z-[220]">
+            <div id="status-dot" class="w-2 h-2 rounded-full bg-gray-300"></div>
+            <span id="status-text" class="text-[9px] font-bold text-gray-400">OFFLINE</span>
+        </div>
+
+        <button class="user-setting" onclick="auth.logout()">
+            <span id="user-display">設定暱稱</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+        <div class="header-text">
+            <h1 id="main-trip-title">載入中...</h1>
+            <span id="trip-date-range" class="text-orange-400 font-bold" style="font-size: 10.5px;">正在計算日期...</span>
+        </div>
+        <!-- 設定按鈕入口 -->
+        <button onclick="openSettings()" style="position:absolute; top:15px; right:20px; background:rgba(255,255,255,0.8); padding:5px; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:1px solid #EEE; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0a2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1-2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+    </header>
+
+    <main>
+        <!-- 行程頁面 -->
+        <section id="tab-schedule" class="page-content active">
+            <!-- 標准化容器 -->
+            <div class="day-nav-bar">
+                <div class="day-switcher" id="daySwitcher"></div>
+            </div>
+            
+            <div class="day-status-bar">當日行程：<span id="daily-status-title" class="editable-title" contenteditable="true" onblur="saveDailyData()">點擊輸入今日主題...</span></div>
+            <div class="hotel-card">
+                <div class="flex-1">
+                    <div class="hotel-label">當日入住旅館</div>
+                    <div id="hotel-name" class="hotel-name" contenteditable="true" onblur="saveDailyData()">飯店名稱</div>
+                    <div class="hotel-addr-box">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <a id="hotel-addr" class="hotel-addr-link" href="#" target="_blank" contenteditable="true" onblur="saveDailyData()">輸入地址或連結...</a>
+                    </div>
+                </div>
+                <div class="hotel-static-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/></svg>
+                </div>
+            </div>
+            <div class="timeline-container"><div class="timeline-line"></div><div id="schedule-list"></div></div>
+        </section>
+        
+        <!-- 準備頁面 -->
+        <section id="tab-prep" class="page-content hidden">
+            <!-- 固定層：確保它在最上方 -->
+            <div class="prep-nav-bar"> 
+                <div class="prep-nav-outer">
+                    <div class="prep-nav-scroll" id="prep-nav-list"></div>
+                </div>
+            </div>
+            <!-- 內容層：需確保不被上方固定欄位遮擋 -->
+            <div id="prep-list-container" class="prep-content-area"></div>
+        </section>
+        
+        <!-- 記帳頁面 -->
+        <section id="tab-expense" class="page-content hidden">
+            <!-- 固定層級 1：導覽列 -->
+            <div class="exp-nav-bar">
+                <div class="exp-nav-capsule">
+                    <div id="nav-exp-entry" class="exp-nav-item active" onclick="switchExpView('entry')">✎ 記帳</div>
+                    <div id="nav-exp-details" class="exp-nav-item" onclick="switchExpView('details')">≡ 明細</div>
+                </div>
+            </div>
+
+            <div class="exp-content-wrapper">
+                  <!-- 記帳輸入區域 -->
+                  <div id="exp-entry-zone" class="flex flex-col">
+                    <div class="exp-field-group">
+                        <label class="exp-field-label" for="ev2-date">📅 消費日期</label>
+                        <input id="ev2-date" type="date" class="exp-big-input">
+                    </div>
+                    <div class="exp-field-group">
+                        <label class="exp-field-label">👤 付款人 (誰先墊錢)</label>
+                        <div class="exp-member-pills" id="ev2-payer-list"></div>
+                    </div>
+                    <div class="exp-field-group">
+                        <label class="exp-field-label" for="ev2-note">＊ 消費項目</label>
+                        <input id="ev2-note" type="text" placeholder="例如：橋村炸雞" class="exp-big-input">
+                    </div>
+                    <div class="exp-field-group">
+                        <label class="exp-field-label">幣別</label>
+                        <div class="grid grid-cols-3 gap-2" id="ev2-currencies">
+                            <div class="exp-option-btn active" onclick="selectCurrency(this, 'KRW')">KRW</div>
+                            <div class="exp-option-btn" onclick="selectCurrency(this, 'TWD')">TWD</div>
+                            <div class="exp-option-btn" onclick="selectCurrency(this, 'USD')">USD</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 佈局金額區域 -->
+                    <div class="exp-amount-grid mb-3">
+                        <div>
+                            <label class="exp-field-label" for="ev2-krw">金額</label>
+                            <input id="ev2-krw" type="number" placeholder="0" class="exp-big-input" oninput="updateTwdConversion(this.value)">
+                        </div>
+                        <div>
+                            <label class="exp-field-label">約合台幣</label>
+                            <div id="ev2-twd" class="exp-big-input bg-gray-50 flex items-center text-gray-400" style="border: 1px dashed #DDD;">0</div>
+                        </div>
+                    </div>
+
+                    <div class="exp-field-group">
+                        <label class="exp-field-label">🎯 歸屬對象 (算誰的錢)</label>
+                        <div class="exp-member-pills" id="ev2-owner-list"></div>
+                    </div>
+                    <button onclick="saveExpenseV2()" class="exp-confirm-btn active:scale-95 transition-transform">確認入帳</button>
+                </div>
+
+               <!-- 明細顯示區域 -->
+               <div id="exp-details-zone" class="hidden">
+                    <div class="exp-subtab-bar">
+                        <div id="exp-subtab-list" class="exp-subtab-list no-scrollbar overflow-x-auto"></div>
+                    </div>
+                    <div id="exp-stats-card">
+                        <div>
+                            <div class="text-[10px] font-bold text-gray-400" id="exp-stats-label">總支出</div>
+                            <div id="exp-stats-total">NT$ 0</div>
+                        </div>
+                        <div class="text-[10px] font-bold text-orange-300" id="exp-stats-count">共 0 筆</div>
+                    </div>
+
+                    <div class="relative px-3">
+                        <div id="expense-list-v2" class="space-y-3 pb-24"></div>
+                     </div>
+                  </div>
+               </div>
+           </section>
+
+        <!-- 指南頁面 -->
+        <section id="tab-guide" class="page-content hidden">
+            <!-- 第一層：導覽膠囊 (固定置頂) -->
+            <div class="guide-nav-bar">
+                <div class="guide-nav-capsule">
+                    <div id="nav-guide-public" class="guide-nav-item active" onclick="switchGuideView('public')">📖 旅遊指南</div>
+                    <div id="nav-guide-private" class="guide-nav-item" onclick="switchGuideView('private')">🔒 個人清單</div>
+                </div>
+            </div>
+
+            <div class="guide-content-wrapper pt-2">
+                <!-- 1. 公用指南區 -->
+                <div id="guide-public-zone">
+                    <div class="px-4 py-3 flex items-center gap-2">
+                        <div class="relative flex-1">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                            <label for="guide-search-input" class="sr-only">搜尋指南</label>
+                            <input type="text" id="guide-search-input" placeholder="搜尋指南..." 
+                                   class="guide-search-input w-full pl-8 pr-3 py-1.5 bg-gray-100 rounded-full text-[11px] font-bold outline-none border-2 border-transparent focus:border-indigo-100"
+                                   oninput="filterPublicGuides(this.value)">
+                        </div>
+                        <button id="btn-guide-tile-manage" onclick="toggleGuideTileManage()" 
+                                class="flex-shrink-0 text-[10px] font-extrabold text-indigo-400 bg-white px-3 py-2 rounded-full border border-indigo-100 shadow-sm active:scale-95 transition-transform">
+                            ✎ 編輯
+                        </button>
+                    </div>
+                    <!-- 指南方格容器 -->
+                    <div id="guide-grid-container"></div>
+                </div>
+
+                <!-- 2. 個人清單區 -->
+                <div id="guide-private-zone" class="hidden relative">
+                    <!-- 旅伴列 -->
+                    <div class="exp-subtab-bar">
+                        <div id="guide-member-list" class="exp-subtab-list no-scrollbar overflow-x-auto"></div>
+                    </div>
+                    <!-- 私人區搜尋與編輯列 -->
+                    <div class="px-4 py-2 flex items-center gap-2 border-b border-gray-50">
+                        <div class="relative flex-1">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                            <label for="guide-private-search-input" class="sr-only">搜尋我的筆記</label>
+                            <input type="text" id="guide-private-search-input" placeholder="搜尋我的筆記..." 
+                                   class="guide-search-input w-full pl-8 pr-3 py-1.5 bg-gray-100 rounded-full text-[11px] font-bold outline-none border-2 border-transparent focus:border-indigo-100"
+                                   oninput="filterPrivateContent(this.value)">
+                        </div>
+                        <button id="btn-guide-private-manage" onclick="toggleGuideTileManage()" 
+                                class="flex-shrink-0 text-[10px] font-extrabold text-indigo-400 bg-white px-3 py-2 rounded-full border border-indigo-100 shadow-sm active:scale-95 transition-transform">
+                            ✎ 編輯
+                        </button>
+                    </div>
+                    <!-- 私人內容顯示容器 -->
+                    <div id="guide-private-content" style="min-height: 100vh; padding-bottom: 100px;"></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 短句頁面 -->
+        <section id="tab-quotes" class="page-content hidden">
+            <!-- 頂部功能列 -->
+            <div class="quote-sticky-bar flex items-center gap-2">
+                <div class="relative flex-1">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                    <input type="text" id="quote-search-input" placeholder="搜尋短句或情境..." 
+                           class="w-full pl-8 pr-3 py-1.5 bg-white rounded-full text-[11px] font-bold outline-none border-2 border-transparent focus:border-[#d5a6bd]"
+                           oninput="handleQuoteSearch(this.value)">
+                </div>
+                <button id="btn-quote-manage" onclick="toggleQuoteManage()" 
+                        class="flex-shrink-0 text-[10px] font-extrabold text-[#d5a6bd] bg-white px-3 py-2 rounded-full border border-[#d5a6bd] shadow-sm active:scale-95 transition-transform">
+                    ✎ 編輯
+                </button>
+            </div>
+            <div id="quote-view-container" class="px-4 pb-24 mt-2"></div>
+        </section>
+    </main>
+
+    <!-- 全局新增按鈕 -->
+    <button class="add-btn" id="global-add-btn" onclick="openModal()">+</button>
+
+    <!-- 全域彈窗區：確保所有 Overlay 都在 main 之外 -->
+
+    <!-- 行程編輯彈窗 -->
+    <div id="modal-overlay" class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/50 backdrop-blur-sm" onclick="closeModal(event)">
+        <div id="modal-content" class="bg-white w-full h-full sm:h-auto sm:w-[500px] sm:rounded-[32px] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center modal-header-sticky p-6 border-b border-gray-50">
+                <h3 class="text-xl font-bold" id="modal-title">新增行程</h3>
+                <button onclick="closeModal()" class="text-gray-400 text-xl p-2">✕</button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 pt-4">
+                <div class="mb-4"><label class="form-label">🏷️ 分類</label>
+                    <div class="flex flex-wrap gap-2" id="cat-pills">
+                        <div class="pill selected" onclick="toggleCat(this)">景點</div>
+                        <div class="pill" onclick="toggleCat(this)">餐廳</div>
+                        <div class="pill" onclick="toggleCat(this)">購物</div>
+                        <div class="pill" onclick="toggleCat(this)">體驗</div>
+                        <div class="pill" onclick="toggleCat(this)">住宿</div>
+                        <div class="pill" onclick="toggleCat(this)">飛機</div>
+                    </div>
+                </div>
+                <div id="normal-fields">
+                    <div class="flex gap-4 mb-4">
+                        <div class="w-1/3">
+                            <label class="form-label" for="f-time">🕒 時間</label>
+                            <input type="time" id="f-time" class="form-input">
+                        </div>
+                        <div class="w-2/3">
+                            <label class="form-label" for="f-name">📍 名稱</label>
+                            <input type="text" id="f-name" class="form-input">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="f-address">🏠 地址</label>
+                        <input type="text" id="f-address" class="form-input" placeholder="請輸入地址......">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="f-address-link">🔗 地址連結</label>
+                        <input type="text" id="f-address-link" class="form-input" placeholder="請輸入地址連結">
+                    </div>
+                    <div class="mb-6">
+                        <label class="form-label" for="f-preview-img-input">🖼️ 景點預覽圖</label>
+                        <div class="flex items-center gap-4">
+                            <button onclick="document.getElementById('f-preview-img-input').click()" class="bg-gray-100 px-4 py-2 rounded-xl text-sm font-bold text-gray-600 border border-gray-200">選擇圖片</button>
+                            <div id="modal-preview-img-box" class="w-16 h-16 rounded-lg bg-gray-50 border border-dashed border-gray-300 flex items-center justify-center overflow-hidden"><span class="text-xs text-gray-300">預覽</span></div>
+                            <input type="file" id="f-preview-img-input" class="hidden" accept="image/*" onchange="handleModalPreviewImg(this)">
+                        </div>
+                    </div>
+                    <div class="mb-6"><label class="form-label">📝 備註</label><div id="notes-container"></div><button onclick="addNoteInput()" class="text-blue-500 text-sm font-bold mt-2">+ 新增備註</button></div>
+                    <div class="mb-4">
+                        <label class="form-label">🗺️ 前往方式</label>
+                        <div id="transport-pills"></div>
+                        <div class="mt-3">
+                            <label class="form-label" for="f-transport-time" style="font-size: 13px;">⏱️ 預計耗時 (分鐘)</label>
+                            <input type="number" id="f-transport-time" class="form-input" placeholder="例如: 15" style="font-size: 16px;">
+                        </div>
+                    </div>
+                </div>
+                <div id="flight-fields" class="hidden">
+                    <div class="flex gap-4 mb-4">
+                        <div class="w-1/2">
+                            <label class="form-label" for="f-airline">✈️ 航空</label>
+                            <input type="text" id="f-airline" class="form-input">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="form-label" for="f-flight-no">🆔 航班</label>
+                            <input type="text" id="f-flight-no" class="form-input">
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mb-4">
+                        <div class="w-1/2">
+                            <label class="form-label" for="f-dep-time">🕒 出發</label>
+                            <input type="time" id="f-dep-time" class="form-input">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="form-label" for="f-arr-time">🕒 抵達</label>
+                            <input type="time" id="f-arr-time" class="form-input">
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mb-4">
+                        <div class="w-1/2">
+                            <label class="form-label" for="f-dep-loc">🛫 起點</label>
+                            <input type="text" id="f-dep-loc" class="form-input">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="form-label" for="f-dest-loc">🛬 終點</label>
+                            <input type="text" id="f-dest-loc" class="form-input">
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-8 pt-4 border-t border-gray-100"><label class="form-label">👤 編輯者</label><div id="author-selector" class="author-selector-box"></div></div>
+                <button onclick="saveItem()" class="w-full text-white font-bold py-3.5 rounded-2xl shadow-lg mb-4" style="background-color: var(--honey-orange);">保 存 行 程</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 旅程基本設定彈窗 -->
+    <div id="settings-overlay" class="fixed inset-0 z-[1500] hidden items-center justify-center bg-black/50 backdrop-blur-sm" onclick="closeSettings(event)">
+        <div id="settings-content" class="bg-white w-[92%] max-h-[85vh] rounded-[32px] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center modal-header-sticky p-6 border-b border-gray-50">
+                <h3 class="text-xl font-bold">旅程基本設定</h3>
+                <button onclick="closeSettings()" class="text-gray-400 text-xl p-2">✕</button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 pt-4">
+                <div class="mb-4">
+                    <label class="form-label" for="set-nickname">👤 我的暱稱</label>
+                    <input type="text" id="set-nickname" class="form-input">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="set-trip-title">🏷️ 行程標題</label>
+                    <input type="text" id="set-trip-title" class="form-input">
+                </div>
+                <div class="flex gap-4 mb-4">
+                    <div class="flex-1">
+                        <label class="form-label" for="set-start-date">📅 開始日期</label>
+                        <input type="date" id="set-start-date" class="form-input">
+                    </div>
+                    <div class="flex-1">
+                        <label class="form-label" for="set-end-date">📅 結束日期</label>
+                        <input type="date" id="set-end-date" class="form-input">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="set-header-url">🖼️ Header 封面圖片網址</label>
+                    <input type="text" id="set-header-url" class="form-input">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="set-header-scale">🔍 圖片縮放比例 - <span id="scale-val">100</span>%</label>
+                    <input type="range" id="set-header-scale" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-400" min="100" max="300" value="100" oninput="document.getElementById('scale-val').innerText = this.value">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="set-header-offset">↕️ 垂直位移 (%) - <span id="y-offset-val">50</span>%</label>
+                    <input type="range" id="set-header-offset" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-400" min="0" max="100" value="50" oninput="document.getElementById('y-offset-val').innerText = this.value">
+                </div>
+                <div class="mb-6 pt-4 border-t border-gray-100">
+                    <label class="form-label">💰 匯率設定 (對台幣 TWD)</label>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="text-[10px] font-bold text-gray-400 block mb-1" for="set-rate-krw">KRW 韓元</label>
+                            <input type="number" id="set-rate-krw" class="form-input" step="0.0001" placeholder="0.024">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-[10px] font-bold text-gray-400 block mb-1" for="set-rate-usd">USD 美元</label>
+                            <input type="number" id="set-rate-usd" class="form-input" step="0.1" placeholder="32.5">
+                        </div>
+                    </div>
+                </div>
+                <button onclick="saveGeneralSettings()" class="w-full bg-orange-400 text-white font-bold py-2.5 rounded-2xl shadow-lg mb-4">儲 存 設 定</button>
+                
+                <!-- 危險操作區域 -->
+                <div class="mt-4 pt-4 border-t-2 border-dashed border-red-50">
+                    <h4 class="text-xs font-bold text-red-400 mb-2 ml-1">危險區域</h4>
+                    <button onclick="auth.deleteAccount()" class="w-full py-2.5 border-2 border-red-200 text-red-500 rounded-2xl font-bold text-sm active:bg-red-50 transition-colors">
+                        註銷並刪除我的帳號資料
+                    </button>
+                    <p class="text-[10px] text-gray-400 mt-2 text-center">＊註銷後，您的私人清單、筆記與個人支出將會被永久抹除</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 影像燈箱結構 -->
+    <div id="trans-lightbox" class="lightbox-overlay z-[5000]" onclick="closeLightbox(event)">
+        <button class="lightbox-delete-btn" onclick="confirmDeleteStepImg()">✕ 刪除此圖</button>
+        <div class="lightbox-content"><img id="lightbox-img" src="" alt="放大圖"></div>
+    </div>
+
+    <!-- 指南方格屬性設定彈窗 -->
+    <div id="tile-settings-overlay" class="fixed inset-0 z-[5000] hidden items-center justify-center bg-black/60 backdrop-blur-md" onclick="closeTileSettings(event)">
+        <div class="bg-white w-[88%] max-w-sm rounded-[30px] shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+            <div class="p-7">
+                <h3 class="text-xl font-bold text-gray-800 mb-6 text-center">分類資訊修改</h3>
+                <div class="space-y-5">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 block mb-2 ml-1 tracking-widest" for="edit-tile-title">分類標題</label>
+                        <input type="text" id="edit-tile-title" class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold outline-none focus:border-indigo-200 transition-all">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 block mb-2 ml-1 tracking-widest" for="tile-img-input">封面圖片</label>
+                        <div class="flex gap-3">
+                            <div id="tile-img-preview" class="w-24 h-24 rounded-2xl bg-gray-100 border border-dashed border-gray-200 flex items-center justify-center overflow-hidden text-[10px] text-gray-400 flex-shrink-0">無圖片</div>
+                            <div class="flex flex-col gap-2 flex-1">
+                                <button onclick="document.getElementById('tile-img-input').click()" class="h-11 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold active:scale-95 transition-transform">選擇圖片庫</button>
+                                <button onclick="removeTileImg()" class="h-11 bg-red-50 text-red-400 rounded-xl text-[10px] font-bold active:scale-95 transition-transform">移除目前圖片</button>
+                                <input type="file" id="tile-img-input" class="hidden" accept="image/*" onchange="handleTileImgSelect(this)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex border-t border-gray-100 h-16">
+                <button onclick="closeTileSettings()" class="flex-1 text-gray-400 text-sm font-bold active:bg-gray-50 transition-colors">取消離開</button>
+                <div class="w-[1px] bg-gray-100"></div>
+                <button onclick="saveTileSettings()" class="flex-1 text-indigo-600 text-sm font-extrabold active:bg-indigo-50 transition-colors">儲存修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 交通詳情懸浮窗 (已移出 main) -->
+    <div id="trans-detail-overlay" class="fixed inset-0 z-[2000] hidden items-center justify-center bg-black/50 backdrop-blur-sm px-4" onclick="closeTransitDetail(event)">
+        <div id="trans-detail-content" class="bg-white w-full max-h-[85vh] rounded-[32px] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+            <div class="modal-header-sticky p-6 border-b border-gray-50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-bold" id="trans-title">🚇 前往下一站</h3>
+                    <p id="trans-subtitle" class="text-xs text-gray-400 mt-1"></p>
+                </div>
+                <button onclick="closeTransitDetail(event)" class="close-trigger text-gray-400 text-xl p-4">✕</button>
+            </div>
+            <div class="flex-1 overflow-y-auto py-4">
+                <a id="trans-nav-link" href="#" target="_blank" class="nav-go-btn mx-6"><span>📍</span> 開始導航 (Google Maps)</a>
+                <div id="transit-steps-container" class="transit-timeline p-6"></div>
+                <div class="px-6 pb-6">
+                    <button onclick="addTransitStep()" class="w-full py-3 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 text-sm font-bold mt-2">+ 新增步驟</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 指南詳情懸浮層 (已移出 main) -->
+    <div id="guide-detail-overlay" class="fixed inset-0 z-[4000] hidden items-center justify-center bg-[#22223B]/60 backdrop-blur-md" onclick="closeGuideDetail(event)">
+        <div class="guide-float-modal bg-white w-[92%] max-h-[85vh] rounded-[30px] shadow-2xl overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+            <!-- 頂部標題與控制列 -->
+            <div class="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-white">
+                <h3 id="g-detail-title" class="text-xl font-black text-[#22223B]">指南內容</h3>
+                <div class="flex items-center gap-3">
+                    <button id="btn-guide-block-edit" onclick="toggleGuideBlockEdit()" class="text-[11px] font-bold text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-full active:scale-95">✎ 編輯內容</button>
+                    <button onclick="closeGuideDetail()" class="text-gray-300 text-2xl p-1">✕</button>
+                </div>
+            </div>
+
+            <!-- 區塊內容滾動區 -->
+            <div id="g-blocks-container" class="flex-1 overflow-y-auto p-6 space-y-2 no-scrollbar">
+                <!-- 由 JS 動態生成 -->
+            </div>
+
+            <!-- 底部編輯工具列 (僅在編輯模式顯示) -->
+            <div id="guide-editor-toolbar" class="hidden bg-gray-50/80 backdrop-blur-md border-t border-gray-100 p-4 animate-slide-up">
+                <div class="flex justify-around items-center bg-white rounded-2xl p-2 shadow-sm border border-gray-100">
+                    <button onclick="addGuideBlock('title')" class="flex flex-col items-center gap-1">
+                        <span class="text-lg">Ｈ</span><span class="text-[9px] font-bold text-gray-400">標題</span>
+                    </button>
+                    <button onclick="addGuideBlock('text')" class="flex flex-col items-center gap-1">
+                        <span class="text-lg">¶</span><span class="text-[9px] font-bold text-gray-400">段落</span>
+                    </button>
+                    <button onclick="document.getElementById('guide-block-img-input').click()" class="flex flex-col items-center gap-1">
+                        <span class="text-lg">📷</span><span class="text-[9px] font-bold text-gray-400">圖片</span>
+                    </button>
+                    <div class="w-[1px] h-8 bg-gray-100 mx-2"></div>
+                    <button onclick="saveGuideBlocks()" class="bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md active:scale-95">完成儲存</button>
+                </div>
+                <input type="file" id="guide-block-img-input" class="hidden" accept="image/*" onchange="handleBlockImgUpload(this)">
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：情境新增彈窗 -->
+    <div id="quote-cat-modal-overlay" class="fixed inset-0 z-[5000] hidden items-end justify-center bg-black/60 backdrop-blur-sm" onclick="closeQuoteModals()">
+        <div class="bg-white w-full rounded-t-[32px] p-8 animate-slide-up" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-bold mb-6 text-[#d5a6bd]">新增情境分類</h3>
+            <input type="text" id="new-cat-name" class="form-input mb-6" placeholder="例如：機場通關">
+            <button onclick="confirmAddQuoteCat()" class="w-full py-4 bg-[#d5a6bd] text-white rounded-2xl font-bold shadow-lg active:scale-95">確認建立</button>
+        </div>
+    </div>
+
+    <!-- 新增：短句新增彈窗 -->
+    <div id="quote-phrase-modal-overlay" class="fixed inset-0 z-[5000] hidden items-end justify-center bg-black/60 backdrop-blur-sm" onclick="closeQuoteModals()">
+        <div class="bg-white w-full rounded-t-[32px] p-8 max-h-[85vh] overflow-y-auto animate-slide-up" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-bold mb-6 text-[#d5a6bd]">新增短句內容</h3>
+            <div class="space-y-4 mb-8">
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block">中文名稱</label><input id="new-q-zh" type="text" class="form-input"></div>
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block">韓文內容</label><input id="new-q-ko" type="text" class="form-input"></div>
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block">羅馬發音</label><input id="new-q-pron" type="text" class="form-input"></div>
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block">英文說明</label><input id="new-q-en" type="text" class="form-input"></div>
+            </div>
+            <button onclick="confirmAddPhrase()" class="w-full py-4 bg-[#d5a6bd] text-white rounded-2xl font-bold shadow-lg active:scale-95">確認新增</button>
+        </div>
+    </div>
+
+    <!-- 底部導覽列 -->
+    <nav class="nav-bar">
+        <button onclick="showPage('schedule', this)" class="nav-item active"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" width="20"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span>行程</span></button>
+        <button onclick="showPage('prep', this)" class="nav-item"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" width="20"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg><span>準備</span></button>
+        <button onclick="showPage('expense', this)" class="nav-item"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" width="20"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.407 2.67 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.407-2.67-1M12 16c-1.657 0-3-.895-3-2s1.343-2 3-2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.407-2.67-1M12 16V17"/></svg><span>記帳</span></button>
+        <button onclick="switchGuideView('public'); showPage('guide', this)" class="nav-item"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" width="20"><path d="M9 20l-5-4V4l5 4 5-4 5 4v12l-5-4-5 4zM9 8v12m5-16v12"/></svg><span>指南</span></button>
+        <button onclick="showPage('quotes', this)" class="nav-item"><svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" width="20"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg><span>短句</span></button>
+    </nav>
+
+    <!-- 全局 Loading 遮罩 -->
+    <div id="global-loader" class="fixed inset-0 z-[9999] bg-white/60 backdrop-blur-md flex items-center justify-center hidden">
+        <div class="flex flex-col items-center gap-3">
+            <div class="w-10 h-10 border-4 border-orange-100 border-t-orange-400 rounded-full animate-spin"></div>
+            <span class="text-xs font-bold text-orange-500">雲端同步中...</span>
+        </div>
+    </div>
+    <!-- 引入 Supabase 官方 SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="core.js?v=1.1"></script>
+    <script src="schedule.js?v=1.1"></script>
+    <script src="expense.js?v=1.1"></script>
+    <script src="prep.js"></script>
+    <script src="guide.js"></script>
+    <script src="quotes.js"></script>
+</body>
+</html>

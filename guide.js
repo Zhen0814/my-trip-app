@@ -672,5 +672,4 @@ function unlockGuideMember() {
     } else {
         alert("密碼不正確！請向該旅伴詢問。");
     }
-}只確保檔案裡關於 const CLOUD_CONFIG 和 const supabase 的代碼全部刪除。
-其他的代碼不更動並全量輸出
+}

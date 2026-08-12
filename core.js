@@ -22,7 +22,7 @@
 const CLOUD_CONFIG = {
     useCloud: true, 
     endpoint: 'https://ifermcurjgpxphchlzub.supabase.co', 
-    apiKey: 'sb_publishable_SzhvuztkkmzJGgxfQKxhHAoSIjpSTV' 
+    apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmZXJtY3VyamdweHBoY2hsenViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NDA2MTcsImV4cCI6MjEwMjExNjYxN30.O-vE999g8HJmV8LHsogeUkPkTQ57G-Z1NHphN2o8bjw' 
 };
 
 // 防禦性宣告連線邏輯

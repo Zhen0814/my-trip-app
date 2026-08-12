@@ -2,42 +2,25 @@
  * ==============================================================================
  * [檔案名稱] core.js
  * [功能描述] WebApp 核心控制中心：對接 Supabase 雲端資料庫與實時同步機制
- * [工程師] Senior Front-end Engineer (10+ Years Exp)
- * [更新內容] 修正重複宣告問題，整合登入/註冊/註銷全雲端連動機制
  * ==============================================================================
  */
 
-/* --- core.js 頂部效能與警告優化 --- */
-(function() {
-    const originalWarn = console.warn;
-    console.warn = (...args) => {
-        if (typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
-        originalWarn.apply(console, args);
-    };
-})();
-
-/* ==========================================
-   1. 雲端控管大腦 (Supabase Configuration)
-   ========================================== */
+/* --- 1. 雲端控管大腦 (Supabase Configuration) --- */
 const CLOUD_CONFIG = {
     useCloud: true, 
-    endpoint: '[https://ifermcurjgpxphchlzub.supabase.co](https://ifermcurjgpxphchlzub.supabase.co)', 
+    endpoint: 'https://ifermcurjgpxphchlzub.supabase.co', 
     apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmZXJtY3VyamdweHBoY2hsenViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NDA2MTcsImV4cCI6MjEwMjExNjYxN30.O-vE999g8HJmV8LHsogeUkPkTQ57G-Z1NHphN2o8bjw' 
 };
 
-// 防禦性宣告連線邏輯
 if (typeof window.supabaseClient === 'undefined') {
     window.supabaseClient = window.supabase.createClient(CLOUD_CONFIG.endpoint, CLOUD_CONFIG.apiKey);
 }
 var supabase = window.supabaseClient;
 
-/* ==========================================
-   2. 全域變數 (Global State)
-   ========================================== */
+/* --- 2. 全域變數 --- */
 let currentDay = 1;
-let days = []; // 儲存格式如 ["08.13", "08.14", ...]
+let days = [];
 
-// 備註圖示顏色映射表 (11 色補完版)
 const colorMap = { 
     '📌': 'note-purple', '⌛': 'note-blue', '📢': 'note-yellow',
     '‼️': 'note-red', '📸': 'note-green', '🍀': 'note-teal',   
@@ -45,13 +28,6 @@ const colorMap = {
     '🍴': 'note-brown', '💕': 'note-pink'    
 };
 
-/* ==========================================
-   3. 雲端資料存取層 (Data Access Layer - DAL)
-   ========================================== */
-
-/**
- * 更新雲端狀態燈號
- */
 function updateCloudStatus(isOnline) {
     const dot = document.getElementById('status-dot');
     const text = document.getElementById('status-text');
@@ -68,9 +44,7 @@ function updateCloudStatus(isOnline) {
     }
 }
 
-/**
- * 讀取雲端/本地資料 (修復版：解決 406/404 報錯與離線備援)
- */
+/* --- 3. 資料存取層 (DAL) --- */
 async function fetchData(key, defaultValue = '[]') {
     if (!CLOUD_CONFIG.useCloud) {
         const data = localStorage.getItem(key);
@@ -100,9 +74,6 @@ async function fetchData(key, defaultValue = '[]') {
     }
 }
 
-/**
- * 寫入雲端/本地資料
- */
 async function saveData(key, content) {
     localStorage.setItem(key, JSON.stringify(content));
     if (!CLOUD_CONFIG.useCloud) return;
@@ -120,9 +91,6 @@ async function saveData(key, content) {
     }
 }
 
-/**
- * 輔助函數：將成員自動寫入雲端旅伴名單 (editorList)
- */
 async function addToEditorList(name) {
     if (!name) return;
     try {
@@ -137,9 +105,7 @@ async function addToEditorList(name) {
     }
 }
 
-/* ==========================================
-   4. 身風驗證與帳號管理 (Auth System)
-   ========================================== */
+/* --- 4. 身份驗證中心 (Auth System) --- */
 const auth = {
     init: function() {
         const currentUser = localStorage.getItem('currentUser');
@@ -164,17 +130,13 @@ const auth = {
 
         if (!name || !pwd) return alert("請填寫完整暱稱與密碼");
 
-        /* 1. 先至雲端查詢個人身分紀錄 */
         const cloudUser = await fetchData(`user_${name}`, 'null');
         
         if (cloudUser) {
-            /* 2. 雲端已有紀錄，進行「登入」密碼比對 */
             if (btoa(pwd) === cloudUser.password) {
                 localStorage.setItem('currentUser', name);
                 localStorage.setItem('nickname', name);
-                
                 await addToEditorList(name);
-
                 alert(`歡迎回來，${name}！已從雲端找回您的身分資料。`);
                 location.reload();
                 return;
@@ -183,7 +145,6 @@ const auth = {
             }
         }
 
-        /* 3. 雲端無紀錄，執行新帳號「註冊」流程 */
         const userData = {
             nickname: name,
             password: btoa(pwd),
@@ -193,7 +154,6 @@ const auth = {
         await saveData(`user_${name}`, userData);
         localStorage.setItem('currentUser', name);
         localStorage.setItem('nickname', name);
-        
         await addToEditorList(name);
 
         alert(`註冊成功！已為「${name}」建立雲端同步身分。`);
@@ -223,18 +183,15 @@ const auth = {
             if (loader) loader.classList.remove('hidden');
 
             try {
-                // 1. 刪除 Supabase 個人資料與指南資料
                 await supabase.from('trip_data').delete().eq('key', `user_${user}`);
                 await supabase.from('trip_data').delete().eq('key', `guide_tiles_${user}`);
 
-                // 2. 清理公費/個人帳單
                 let expenses = await fetchData('tripExpenses', '[]');
                 if (Array.isArray(expenses)) {
                     expenses = expenses.filter(item => item.owner !== user);
                     await saveData('tripExpenses', expenses);
                 }
 
-                // 3. 從雲端旅伴名單移除
                 let editors = await fetchData('editorList', '[]');
                 if (Array.isArray(editors)) {
                     editors = editors.filter(e => e !== user);
@@ -255,18 +212,8 @@ const auth = {
     }
 };
 
-/* ==========================================
-   5. 初始化與實時同步 (Initialization & Sync)
-   ========================================== */
+/* --- 5. 初始化與實時同步 --- */
 window.onload = async () => { 
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        const warn = console.warn;
-        console.warn = (...args) => {
-            if (args[0] && args[0].includes('should not be used in production')) return;
-            warn(...args);
-        };
-    }
-
     try {
         const { data, error } = await supabase.from('trip_data').select('key').limit(1);
         if (!error) updateCloudStatus(true);
@@ -297,35 +244,19 @@ function initRealtimeSync() {
         .channel('trip_realtime_sync')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trip_data' }, payload => {
             const updatedKey = payload.new.key;
-            console.log(`⚡ 偵測到雲端更新: ${updatedKey}`);
-            
-            if (updatedKey === 'schedule') {
-                if (typeof renderList === 'function') renderList();
-            }
-            if (updatedKey === 'tripExpenses') {
-                if (typeof renderExpensesV2 === 'function') renderExpensesV2();
-            }
-            if (updatedKey === 'dailyData') {
-                if (typeof loadDailyData === 'function') loadDailyData();
-            }
-            if (updatedKey === 'prep_items') {
-                if (typeof renderPrep === 'function') renderPrep();
-            }
-            if (updatedKey.includes('guide_tiles')) {
-                if (typeof renderGuide === 'function') renderGuide();
-            }
-            if (updatedKey === 'quotes') {
-                if (typeof renderQuotes === 'function') renderQuotes();
-            }
+            if (updatedKey === 'schedule' && typeof renderList === 'function') renderList();
+            if (updatedKey === 'tripExpenses' && typeof renderExpensesV2 === 'function') renderExpensesV2();
+            if (updatedKey === 'dailyData' && typeof loadDailyData === 'function') loadDailyData();
+            if (updatedKey === 'prep_items' && typeof renderPrep === 'function') renderPrep();
+            if (updatedKey.includes('guide_tiles') && typeof renderGuide === 'function') renderGuide();
+            if (updatedKey === 'quotes' && typeof renderQuotes === 'function') renderQuotes();
         })
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') updateCloudStatus(true);
         });
 }
 
-/* ==========================================
-   6. 導覽列與分頁控制 (UI Control)
-   ========================================== */
+/* --- 6. UI 與導覽 --- */
 function showPage(pageId, btnEl) {
     document.body.setAttribute('data-page', pageId);
     document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
@@ -356,9 +287,7 @@ function showPage(pageId, btnEl) {
     window.scrollTo(0, 0);
 }
 
-/* ==========================================
-   7. 旅程設定與匯率邏輯 (Settings Logic)
-   ========================================== */
+/* --- 7. 設定與旅程資訊 --- */
 async function openSettings() {
     const overlay = document.getElementById('settings-overlay');
     if (overlay) overlay.classList.add('active');
@@ -367,12 +296,10 @@ async function openSettings() {
     document.getElementById('set-trip-title').value = localStorage.getItem('tripTitle') || "我要出去玩";
     document.getElementById('set-start-date').value = localStorage.getItem('startDate') || "2026-08-13";
     document.getElementById('set-end-date').value = localStorage.getItem('endDate') || "2026-08-18";
-    document.getElementById('set-header-url').value = localStorage.getItem('headerImg') || "[https://i.meee.com.tw/YTg8aFq.jpg](https://i.meee.com.tw/YTg8aFq.jpg)";
+    document.getElementById('set-header-url').value = localStorage.getItem('headerImg') || "https://i.meee.com.tw/YTg8aFq.jpg";
     
-    const offset = localStorage.getItem('headerOffset') || "50";
-    document.getElementById('set-header-offset').value = offset;
-    const scale = localStorage.getItem('headerScale') || "100";
-    document.getElementById('set-header-scale').value = scale;
+    document.getElementById('set-header-offset').value = localStorage.getItem('headerOffset') || "50";
+    document.getElementById('set-header-scale').value = localStorage.getItem('headerScale') || "100";
 
     const rates = await fetchData('tripRates', '{"KRW":0.024, "USD":32.5}');
     if (document.getElementById('set-rate-krw')) document.getElementById('set-rate-krw').value = rates.KRW;
@@ -429,15 +356,13 @@ async function loadTripSettings() {
     
     const h = document.getElementById('header-bg');
     if (h) {
-        h.style.setProperty('--header-bg-img', `url('${localStorage.getItem('headerImg') || '[https://i.meee.com.tw/YTg8aFq.jpg](https://i.meee.com.tw/YTg8aFq.jpg)'}')`);
+        h.style.setProperty('--header-bg-img', `url('${localStorage.getItem('headerImg') || 'https://i.meee.com.tw/YTg8aFq.jpg'}')`);
         h.style.setProperty('--header-bg-pos-y', `${localStorage.getItem('headerOffset') || '50'}%`);
         h.style.setProperty('--header-bg-scale', `${localStorage.getItem('headerScale') || '100'}%`);
     }
 }
 
-/* ==========================================
-   8. 日期運算工具
-   ========================================== */
+/* --- 8. 日期計算 --- */
 function calculateDaysArray(start, end) {
     const s = new Date(start);
     const e = new Date(end);
@@ -460,15 +385,13 @@ function formatFullDate(dateStr) {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${getDayOfWeek(dateStr)})`;
 }
 
-/* ==========================================
-   9. 飯店與當日主題 (Daily Info)
-   ========================================== */
+/* --- 9. 每日資訊 --- */
 async function saveDailyData() {
     const data = await fetchData('dailyData', '{}');
     data[currentDay] = { 
-        title: document.getElementById('daily-status-title').innerText, 
-        hotel: document.getElementById('hotel-name').innerText, 
-        addr: document.getElementById('hotel-addr').innerText 
+        title: document.getElementById('daily-status-title')?.innerText || '', 
+        hotel: document.getElementById('hotel-name')?.innerText || '', 
+        addr: document.getElementById('hotel-addr')?.innerText || '' 
     };
     await saveData('dailyData', data);
     updateHotelLink();
@@ -486,12 +409,10 @@ async function loadDailyData() {
 function updateHotelLink() {
     const el = document.getElementById('hotel-addr');
     if (!el) return;
-    el.href = el.innerText.startsWith('http') ? el.innerText : `[https://www.google.com/maps/search/?api=1&query=$](https://www.google.com/maps/search/?api=1&query=$){encodeURIComponent(el.innerText)}`;
+    el.href = el.innerText.startsWith('http') ? el.innerText : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(el.innerText)}`;
 }
 
-/* ==========================================
-   10. 全域工具 (Utilities)
-   ========================================== */
+/* --- 10. 工具函式 --- */
 const utils = {
     compressImage: function(file, maxSide = 1200, quality = 0.8) {
         return new Promise((resolve) => {

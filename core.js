@@ -69,12 +69,8 @@ function updateCloudStatus(isOnline) {
 }
 
 /**
- * 統一的資料讀取器 (fetchData)
+ * 讀取雲端/本地資料 (修復版)
  */
-// 修正後的 fetchData
-/* --- 修正後的 fetchData --- */
-/* --- core.js 完整修復版 --- */
-
 // 1. 修復 fetchData：解決 406/404 報錯與離線備援
 async function fetchData(key, defaultValue = '[]') {
     if (!CLOUD_CONFIG.useCloud) {

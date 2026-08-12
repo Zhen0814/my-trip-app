@@ -37,13 +37,12 @@ function switchDay(d, el) {
 }
 
 /* ==========================================
-   3. 行程列表渲染 (Render Cards) - 已改為非同步
+   3. 行程列表渲染 (Render Cards)
    ========================================== */
 async function renderList() {
     const container = document.getElementById('schedule-list');
     if (!container) return;
 
-    // 關鍵修改：從 fetchData 拿取最新雲端資料
     let allData = await fetchData('schedule', '[]');
     let filtered = allData.filter(i => i.day === currentDay).sort((a,b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
     
@@ -52,7 +51,6 @@ async function renderList() {
         const realIdx = allData.indexOf(item);
         const timeMarker = `<div class="time-marker-group"><div class="attraction-time">${item.time}</div><div class="time-dot"></div></div>`;
         
-        // A. 在景點卡片之前渲染交通小卡 (從第 2 個景點開始，連接前一站到本站)
         if (i > 0) {
             html += `
             <div class="transport-wrapper">
@@ -65,7 +63,6 @@ async function renderList() {
             </div>`;
         }
 
-        // B. 渲染景點卡片或航班卡片
         if (item.cat === '飛機') {
             html += `<div class="event-node">${timeMarker}${renderFlightCard(item, realIdx)}</div>`;
         } else {
@@ -173,7 +170,6 @@ async function openModal(idx = null) {
     const inputs = document.querySelectorAll('#modal-content input[type="text"], #modal-content input[type="time"], #modal-content input[type="number"]');
     inputs.forEach(input => input.value = "");
     
-    // 從雲端獲取最新資料
     const data = await fetchData('schedule', '[]');
     let item = idx !== null ? data[idx] : null;
     let targetAuthor = localStorage.getItem('nickname') || "";
@@ -222,14 +218,13 @@ async function openModal(idx = null) {
             ${icon} ${transportIcons[icon]}
         </div>`).join('');
 
-    renderAuthorSelector(targetAuthor); 
+    await renderAuthorSelector(targetAuthor); 
     document.getElementById('modal-overlay').classList.add('active');
 }
 
 async function saveItem() {
     const cat = document.querySelector('#cat-pills .selected').innerText; 
     
-    // 關鍵修改：存檔前先從雲端領取最新資料，避免覆蓋他人更動
     let data = await fetchData('schedule', '[]'); 
     let item = { day: currentDay, cat: cat, author: selectedAuthor, notes: [] };
     
@@ -262,10 +257,9 @@ async function saveItem() {
         data.push(item);
     }
 
-    // 關鍵修改：使用 await saveData 存入雲端
     await saveData('schedule', data); 
     closeModal(); 
-    renderList(); // 重新渲染
+    renderList(); 
 }
 
 async function deleteItem(idx) { 
@@ -281,20 +275,18 @@ async function deleteItem(idx) {
    5. 交通詳情實作邏輯
    ========================================== */
 async function openTransportDetail(idx) {
-    currentTransIdx = idx; // idx 現在是目的地
+    currentTransIdx = idx;
     const overlay = document.getElementById('trans-detail-overlay');
     if (!overlay) return;
 
     document.body.classList.add('no-scroll');
     
     let allData = await fetchData('schedule', '[]');
-    let currentItem = allData[idx]; // 目的地
+    let currentItem = allData[idx];
     
-    // 獲取前一站作為起點
     const prevItem = getPrevItem(allData, idx);
     const originName = prevItem ? prevItem.name : "目前位置";
 
-    // 初始化交通步驟
     if (!currentItem.transitSteps || currentItem.transitSteps.length === 0) {
         currentItem.transitSteps = [
             { action: "從這裡出發", detail: originName, isHigh: false, imgs: [] },
@@ -303,7 +295,6 @@ async function openTransportDetail(idx) {
         await saveData('schedule', allData);
     }
 
-    // 導航連結設定
     const navLink = document.getElementById('trans-nav-link');
     if (navLink) {
         if (prevItem && currentItem) {
@@ -318,7 +309,6 @@ async function openTransportDetail(idx) {
         }
     }
 
-    // 標題與目的地顯示
     document.getElementById('trans-title').innerText = `${currentItem.transportMode || '🚶'} 前往下一站`;
     document.getElementById('trans-subtitle').innerHTML = `目的地：<span id="dest-copy-target">${currentItem.name}</span><button onclick="copyDestName('${currentItem.name}')" class="copy-btn">📋 複製</button>`;
     
@@ -326,7 +316,6 @@ async function openTransportDetail(idx) {
     overlay.classList.add('active');
 }
 
-// 輔助函式：獲取前一站
 function getPrevItem(allData, currentIdx) {
     const currentItem = allData[currentIdx];
     const filtered = allData.filter(i => i.day === currentItem.day).sort((a,b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
@@ -610,12 +599,15 @@ async function handleModalPreviewImg(input) {
     } 
 }
 
-function renderAuthorSelector(currentValue = "") {
+/* 修正：改從雲端（fetchData）抓取最新旅伴名單 */
+async function renderAuthorSelector(currentValue = "") {
     const container = document.getElementById('author-selector');
     if (!container) return;
     container.className = "author-selector-box"; 
-    const list = JSON.parse(localStorage.getItem('editorList') || '[]');
+    
+    const list = await fetchData('editorList', '[]');
     selectedAuthor = currentValue; 
+    
     let html = `<div class="author-pill ${selectedAuthor === '' ? 'active' : ''}" onclick="pickAuthor('', this)">不顯示</div>`;
     list.forEach(name => { 
         html += `<div class="author-pill ${selectedAuthor === name ? 'active' : ''}" onclick="pickAuthor('${name}', this)">${name}</div>`; 
@@ -630,10 +622,10 @@ function pickAuthor(name, el) {
     if (el) el.classList.add('active'); 
 }
 
-function addNewAuthor() { 
+async function addNewAuthor() { 
     const name = prompt("輸入新的編輯者暱稱："); 
     if (name) { 
-        addToEditorList(name.trim()); 
-        renderAuthorSelector(name.trim()); 
+        await addToEditorList(name.trim()); 
+        await renderAuthorSelector(name.trim()); 
     } 
 }

@@ -1,4 +1,4 @@
-/* --- prep.js --- */
+/* --- prep.js 雲端同步修正版 --- */
 
 /* ==========================================
    1. 數據模板 (扁平化結構)
@@ -27,7 +27,7 @@ const MASTER_PRIVATE_TEMPLATE = [
 ];
 
 /* ==========================================
-   2. 狀態管理與渲染 (核心優化：鎖定介面結構)
+   2. 狀態管理與渲染 (核心優化：全雲端異步對接)
    ========================================== */
 let activePrepOwner = 'public'; 
 let editingCatIdx = null; 
@@ -35,20 +35,18 @@ let isUnlocked = false;
 
 if (typeof AppRuntime === 'undefined') window.AppRuntime = {};
 
-function renderPrep() {
-    renderPrepNav(); // 先渲染旅伴列
+async function renderPrep() {
+    await renderPrepNav();
     const container = document.getElementById('prep-list-container');
     if (!container) return;
 
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
     const isLocked = (activePrepOwner !== 'public' && activePrepOwner !== currentUser && !isUnlocked);
 
-    // 修改點 B：更新鎖定 HTML 結構
     if (isLocked) {
         container.innerHTML = `
             <div class="lock-zone flex flex-col items-center justify-center pt-2 pb-12">
                 <div class="lock-card">
-                    <!-- 使用與計畫書描述一致的鎖頭圖示與自定義 Class -->
                     <div class="lock-emoji">🔐</div>
                     <div class="lock-title">這是 ${activePrepOwner} 的私人清單</div>
                     <div class="lock-subtitle">請輸入該旅伴的密碼以解鎖</div>
@@ -63,8 +61,7 @@ function renderPrep() {
         return;
     }
 
-    // 若解鎖，執行正常渲染
-    let data = prepEngine._getData();
+    let data = await prepEngine._getData();
     let html = `<div class="space-y-2">`;
     
     data.forEach((cat, cIdx) => {
@@ -110,122 +107,123 @@ function renderPrep() {
 }
 
 /* ==========================================
-   3. 互動邏輯 (CRUD)
+   3. 互動邏輯 (CRUD - 改為全雲端異步)
    ========================================== */
 const prepEngine = {
-    _getData: function() {
+    _getData: async function() {
         if (activePrepOwner === 'public') {
-            let data = JSON.parse(localStorage.getItem('publicPrep') || '[]');
-            if (data.length === 0) { 
+            let data = await fetchData('publicPrep', '[]');
+            if (!Array.isArray(data) || data.length === 0) { 
                 data = JSON.parse(JSON.stringify(MASTER_PUBLIC_TEMPLATE));
-                localStorage.setItem('publicPrep', JSON.stringify(data));
+                await saveData('publicPrep', data);
             }
             return data;
         }
-        const userData = JSON.parse(localStorage.getItem(`user_${activePrepOwner}`));
+        const userData = await fetchData(`user_${activePrepOwner}`, 'null');
         return (userData && userData.prep) ? userData.prep : [];
     },
     
-    _saveData: function(data) {
+    _saveData: async function(data) {
         if (activePrepOwner === 'public') {
-            localStorage.setItem('publicPrep', JSON.stringify(data));
+            await saveData('publicPrep', data);
         } else {
-            const userData = JSON.parse(localStorage.getItem(`user_${activePrepOwner}`));
+            const userData = await fetchData(`user_${activePrepOwner}`, 'null');
             if (userData) {
                 userData.prep = data;
-                localStorage.setItem(`user_${activePrepOwner}`, JSON.stringify(userData));
+                await saveData(`user_${activePrepOwner}`, userData);
             }
         }
     },
 
-    unlock: function(owner) {
-        const userData = JSON.parse(localStorage.getItem(`user_${owner}`));
-        const input = document.getElementById('prep-lock-pwd').value;
+    unlock: async function(owner) {
+        const inputEl = document.getElementById('prep-lock-pwd');
+        const input = inputEl ? inputEl.value : "";
+        
+        const userData = await fetchData(`user_${owner}`, 'null');
         if (userData && btoa(input) === userData.password) {
             isUnlocked = true;
-            renderPrep();
+            await renderPrep();
         } else {
             alert("密碼錯誤！");
         }
     },
 
-    initPrivatePrep: function() {
-        const user = localStorage.getItem('currentUser');
+    initPrivatePrep: async function() {
+        const user = (localStorage.getItem('currentUser') || "").trim();
         if (!user) return;
-        const userData = JSON.parse(localStorage.getItem(`user_${user}`));
+        const userData = await fetchData(`user_${user}`, 'null');
         if (!userData) return;
         userData.prep = JSON.parse(JSON.stringify(MASTER_PRIVATE_TEMPLATE));
-        localStorage.setItem(`user_${user}`, JSON.stringify(userData));
+        await saveData(`user_${user}`, userData);
         isUnlocked = true;
-        switchPrepTab(user);
+        await switchPrepTab(user);
     },
 
-    toggleCardEdit: function(idx) {
+    toggleCardEdit: async function(idx) {
         editingCatIdx = (editingCatIdx === idx) ? null : idx;
-        renderPrep();
+        await renderPrep();
     },
 
-    toggleCat: function(cIdx) {
-        const data = this._getData();
+    toggleCat: async function(cIdx) {
+        const data = await this._getData();
         data[cIdx].isCollapsed = !data[cIdx].isCollapsed;
-        this._saveData(data);
-        renderPrep();
+        await this._saveData(data);
+        await renderPrep();
     },
 
-    toggleItem: function(cIdx, iIdx) {
-        const data = this._getData();
+    toggleItem: async function(cIdx, iIdx) {
+        const data = await this._getData();
         data[cIdx].items[iIdx].done = !data[cIdx].items[iIdx].done;
-        this._saveData(data);
-        renderPrep();
+        await this._saveData(data);
+        await renderPrep();
     },
 
-    addItem: function(cIdx, val) {
+    addItem: async function(cIdx, val) {
         if (!val.trim()) return;
-        const data = this._getData();
+        const data = await this._getData();
         data[cIdx].items.push({ text: val.trim(), done: false });
-        this._saveData(data);
-        renderPrep();
+        await this._saveData(data);
+        await renderPrep();
     },
 
-    addCategory: function() {
+    addCategory: async function() {
         const val = prompt("請輸入分類名稱：");
         if (!val) return;
-        const data = this._getData();
+        const data = await this._getData();
         data.push({ title: val, isCollapsed: false, items: [] });
-        this._saveData(data);
-        renderPrep();
+        await this._saveData(data);
+        await renderPrep();
     },
 
-    deleteItem: function(cIdx, iIdx = null) {
+    deleteItem: async function(cIdx, iIdx = null) {
         if (!confirm("確定要刪除嗎？")) return;
-        const data = this._getData();
+        const data = await this._getData();
         if (iIdx !== null) {
             data[cIdx].items.splice(iIdx, 1);
         } else {
             data.splice(cIdx, 1);
             editingCatIdx = null;
         }
-        this._saveData(data);
-        renderPrep();
+        await this._saveData(data);
+        await renderPrep();
     }
 };
 
 /* ==========================================
-   4. 導覽列與分頁邏輯 (重構：靜默初始化)
+   4. 導覽列與分頁邏輯 (雲端同步重構)
    ========================================== */
 async function renderPrepNav() {
     const nav = document.getElementById('prep-nav-list');
     if (!nav) return;
     
-    // 從雲端抓取最新的旅伴名單（若無則嘗試備援 LocalStorage）
     const editors = await fetchData('editorList', '[]');
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
-    
+
     if (currentUser) {
-        const myData = JSON.parse(localStorage.getItem(`user_${currentUser}`));
+        const myData = await fetchData(`user_${currentUser}`, 'null');
         if (myData && (!myData.prep || myData.prep.length === 0)) {
             myData.prep = JSON.parse(JSON.stringify(MASTER_PRIVATE_TEMPLATE));
-            localStorage.setItem(`user_${currentUser}`, JSON.stringify(myData));
+            await saveData(`user_${currentUser}`, myData);
         }
     }
 
@@ -234,8 +232,8 @@ async function renderPrepNav() {
              onclick="switchPrepTab('public')">全體</div>
     `;
 
-    editors.forEach(name => {
-        const userData = JSON.parse(localStorage.getItem(`user_${name}`));
+    for (const name of editors) {
+        const userData = await fetchData(`user_${name}`, 'null');
         const hasPrepData = userData && userData.prep && userData.prep.length > 0;
         if (hasPrepData || activePrepOwner === name) {
             html += `
@@ -243,11 +241,11 @@ async function renderPrepNav() {
                      onclick="switchPrepTab('${name}')">${name}</div>
             `;
         }
-    });
+    }
     nav.innerHTML = html;
 }
 
-function switchPrepTab(owner) {
+async function switchPrepTab(owner) {
     activePrepOwner = owner;
     editingCatIdx = null;
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
@@ -256,5 +254,5 @@ function switchPrepTab(owner) {
     } else {
         isUnlocked = false;
     }
-    renderPrep();
+    await renderPrep();
 }

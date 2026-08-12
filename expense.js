@@ -3,7 +3,7 @@
  * [檔案名稱] expense.js
  * [功能描述] 記帳與開支管理系統：包含多幣別換算、公費/私人分帳、照片收據管理與加密解鎖
  * [工程師] Senior Front-end Engineer (10+ Years Exp)
- * [更新內容] 全面導入 fetchData / saveData 雲端同步邏輯
+ * [更新內容] 全面導入 fetchData / saveData 雲端同步邏輯與跨裝置身分解鎖
  * ==============================================================================
  */
 
@@ -16,11 +16,11 @@ let selectedPayer = '';              // 預設支付者
 let selectedExpOwner = 'public';      // 預設歸屬對象 (公費/私人)
 let collapsedDays = {};              // 明細摺疊狀態紀錄
 
-// 匯率定義：KRW、USD 對 TWD 的匯率 (此部分可保留在 LocalStorage 作為快取)
+// 匯率定義：KRW、USD 對 TWD 的匯率 (保留 LocalStorage 作為快取)
 const rates = JSON.parse(localStorage.getItem('tripRates') || '{"KRW":0.024, "USD":32.5, "TWD":1.0}');
 
 /* --- 2. 視圖切換路由 --- */
-function switchExpView(view) {
+async function switchExpView(view) {
     currentExpView = view;
     
     const entryZone = document.getElementById('exp-entry-zone');
@@ -34,11 +34,11 @@ function switchExpView(view) {
     if (detailsZone) detailsZone.classList.toggle('hidden', view !== 'details');
     
     if (view === 'details') {
-        renderDetailTabs();
-        renderExpensesV2();
+        await renderDetailTabs();
+        await renderExpensesV2();
         window.scrollTo({ top: 0, behavior: 'auto' });
     } else {
-        initExpenseFormV2();
+        await initExpenseFormV2();
         window.scrollTo({ top: 0, behavior: 'auto' });
     }
 }
@@ -47,18 +47,15 @@ function switchExpView(view) {
 async function updateExpensePhoto(id, input) {
     if (!input.files || !input.files[0]) return;
     try {
-        // 使用 utils 進行圖片壓縮，設定 1200px 寬度平衡清晰度與儲存空間
         const compressedBase64 = await utils.compressImage(input.files[0], 1200, 0.8);
         
-        // 關鍵修改：從雲端抓取資料
         let data = await fetchData('tripExpenses', '[]');
         const idx = data.findIndex(item => item.id === id);
         
         if (idx !== -1) {
             data[idx].receiptImg = compressedBase64;
-            // 關鍵修改：存回雲端
             await saveData('tripExpenses', data);
-            renderExpensesV2();
+            await renderExpensesV2();
         }
     } catch (err) { 
         console.error("收據上傳失敗:", err);
@@ -71,20 +68,17 @@ async function updateExpensePhoto(id, input) {
  * @param {number} id 帳目 ID
  */
 async function deleteExpensePhoto(id) {
-    // 關鍵修改：從雲端抓取資料
     let data = await fetchData('tripExpenses', '[]');
     const idx = data.findIndex(item => item.id === id);
     
     if (idx !== -1) {
         data[idx].receiptImg = ""; 
-        // 關鍵修改：存回雲端
         await saveData('tripExpenses', data);
         
-        // 若燈箱開啟中，則關閉
         const lightbox = document.getElementById('trans-lightbox');
         if (lightbox) lightbox.classList.remove('active');
         
-        renderExpensesV2();
+        await renderExpensesV2();
     }
 }
 
@@ -123,13 +117,15 @@ function selectExpOwner(el, owner) {
 }
 
 /**
- * 初始化記帳表單
+ * 初始化記帳表單 (修復為全雲端成員名單)
  */
-function initExpenseFormV2() {
+async function initExpenseFormV2() {
     const payerContainer = document.getElementById('ev2-payer-list');
     const ownerContainer = document.getElementById('ev2-owner-list');
     const dateInput = document.getElementById('ev2-date');
-    const editors = JSON.parse(localStorage.getItem('editorList') || '[]');
+    
+    // 改從雲端讀取成員名單
+    const editors = await fetchData('editorList', '[]');
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
 
     if (dateInput && typeof days !== 'undefined' && days[currentDay-1]) {
@@ -160,7 +156,7 @@ function initExpenseFormV2() {
 /* --- 6. 數據操作 (新增/刪除) --- */
 
 /**
- * 儲存記帳資料 - 已改為非同步
+ * 儲存記帳資料
  */
 async function saveExpenseV2() {
     const noteEl = document.getElementById('ev2-note');
@@ -176,7 +172,6 @@ async function saveExpenseV2() {
         return;
     }
 
-    // 關鍵修改：從雲端領取最新資料
     const data = await fetchData('tripExpenses', '[]');
     
     const newEntry = {
@@ -195,28 +190,24 @@ async function saveExpenseV2() {
 
     data.push(newEntry);
 
-    // 關鍵修改：使用 await saveData 存入雲端
     await saveData('tripExpenses', data);
     
     alert("✅ 費用已入帳");
     resetExpForm();
-    switchExpView('details'); 
+    await switchExpView('details'); 
 }
 
 /**
- * 刪除記帳 - 已改為非同步
+ * 刪除記帳
  */
 async function deleteExpenseV2(id) {
     if (!confirm("確定要刪除這筆記帳嗎？")) return;
     
-    // 關鍵修改：從雲端領取資料
     let data = await fetchData('tripExpenses', '[]');
     const newData = data.filter(item => item.id !== id);
     
-    // 關鍵修改：存回雲端
     await saveData('tripExpenses', newData);
-    
-    renderExpensesV2(); 
+    await renderExpensesV2(); 
 }
 
 function resetExpForm() {
@@ -228,12 +219,12 @@ function resetExpForm() {
 
 /* --- 7. 明細渲染與分組統計 --- */
 
-function switchDetailTab(owner) {
+async function switchDetailTab(owner) {
     currentDetailOwner = owner;
     isExpUnlocked = false; 
     collapsedDays = {}; 
-    renderDetailTabs();
-    renderExpensesV2();
+    await renderDetailTabs();
+    await renderExpensesV2();
 }
 
 /**
@@ -243,7 +234,6 @@ async function renderDetailTabs() {
     const container = document.getElementById('exp-subtab-list');
     if (!container) return;
     
-    // 改為從雲端（Supabase）讀取最新的旅伴名單
     const editors = await fetchData('editorList', '[]');
     
     let html = `<div class="exp-subtab ${currentDetailOwner === 'public' ? 'active' : ''}" onclick="switchDetailTab('public')">🌐 公費</div>`;
@@ -260,7 +250,7 @@ function toggleDayExp(date) {
 }
 
 /**
- * 【核心渲染】渲染記帳明細列表 - 已改為非同步
+ * 【核心渲染】渲染記帳明細列表
  */
 async function renderExpensesV2() {
     const listContainer = document.getElementById('expense-list-v2');
@@ -293,7 +283,6 @@ async function renderExpensesV2() {
 
     if (statsCard) statsCard.style.display = 'flex';
 
-    // 關鍵修改：從雲端抓取記帳紀錄
     let data = await fetchData('tripExpenses', '[]');
     let filtered = data.filter(item => item.owner === currentDetailOwner);
     filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -373,28 +362,29 @@ async function renderExpensesV2() {
 }
 
 /**
- * 解鎖個人帳目視圖
+ * 解鎖個人帳目視圖 (修復為從雲端拿取對方的密碼紀錄)
  */
-function unlockPersonalExp() {
-    const userData = JSON.parse(localStorage.getItem(`user_${currentDetailOwner}`));
+async function unlockPersonalExp() {
     const pwdInputEl = document.getElementById('exp-lock-pwd');
     const pwdInput = pwdInputEl ? pwdInputEl.value : "";
 
     if (!pwdInput) return alert("請輸入密碼");
     
-    // 使用 Base64 比對加密後的密碼
+    // 從雲端讀取對方的註冊資料進行驗證
+    const userData = await fetchData(`user_${currentDetailOwner}`, 'null');
+    
     if (userData && btoa(pwdInput) === userData.password) {
         isExpUnlocked = true;
-        renderExpensesV2();
+        await renderExpensesV2();
     } else {
         alert("密碼錯誤，無法解鎖私人帳目！");
     }
 }
 
 /* --- 8. 事件監聽 --- */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     if (document.getElementById('tab-expense')) {
-        initExpenseFormV2();
-        switchExpView('entry');
+        await initExpenseFormV2();
+        await switchExpView('entry');
     }
 });

@@ -1,14 +1,14 @@
 /**
  * ==============================================================================
  * [檔案名稱] quotes.js
- * [功能描述] 旅遊短句管理系統：包含情境分類、韓文 TTS 語音、羅馬拼音顯示與自定義 CRUD
+ * [功能描述] 旅遊短句管理系統：包含情境分類、韓文 TTS 語音、羅馬拼音顯示與全雲端 CRUD
  * [工程師] Senior Front-end Engineer (10+ Years Exp)
- * [更新內容] 實作緊湊化 UI：縮減間距與字體大小，優化行動端列表顯示效率
+ * [更新內容] 升級為全雲端同步架構 (fetchData / saveData)
  * ==============================================================================
  */
 
-/* --- 1. 初始資料與狀態管理 --- */
-let quotesData = JSON.parse(localStorage.getItem('tripQuotesLib')) || {
+/* --- 1. 預設資料與狀態管理 --- */
+const DEFAULT_QUOTES_DATA = {
     "日常用語": [
         { id: 1, zh: "你好", ko: "안녕하세요", pron: "an-nyeong-ha-se-yo", en: "Hello." },
         { id: 2, zh: "謝謝", ko: "감사합니다", pron: "gam-sa-ham-ni-da", en: "Thank you." },
@@ -28,6 +28,7 @@ let quotesData = JSON.parse(localStorage.getItem('tripQuotesLib')) || {
     ]
 };
 
+let quotesData = null;           // 雲端抓取到的對話資料庫
 let currentQuoteCat = null;      // 目前所在分類
 let isQuotesEditing = false;    // 是否為編輯模式
 let expandedQuoteId = null;     // 目前展開的短句 ID
@@ -36,11 +37,27 @@ let quoteSearchKey = "";        // 搜尋關鍵字
 /* --- 2. 核心渲染邏輯 --- */
 
 /**
- * 渲染入口
+ * 讀取雲端短句庫資料
  */
-function renderQuotes() {
+async function loadQuotesData() {
+    let data = await fetchData('quotes', 'null');
+    if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+        data = DEFAULT_QUOTES_DATA;
+        await saveData('quotes', data);
+    }
+    quotesData = data;
+}
+
+/**
+ * 渲染入口 (改為非同步)
+ */
+async function renderQuotes() {
     const container = document.getElementById('quote-view-container');
     if (!container) return;
+
+    if (!quotesData) {
+        await loadQuotesData();
+    }
 
     if (!currentQuoteCat) {
         renderCategoryGrid(container);
@@ -50,7 +67,7 @@ function renderQuotes() {
 }
 
 /**
- * 1. 渲染情境方格 (外層) - 字體放大
+ * 1. 渲染情境方格 (外層)
  */
 function renderCategoryGrid(container) {
     let html = `<div class="grid grid-cols-3 gap-3 mt-2">`;
@@ -83,7 +100,7 @@ function renderCategoryGrid(container) {
 }
 
 /**
- * 2. 渲染短句列表 (內層) - 緊湊化實作
+ * 2. 渲染短句列表 (內層)
  */
 function renderPhraseList(container) {
     let html = `
@@ -92,7 +109,8 @@ function renderPhraseList(container) {
             <h2 class="text-sm font-black text-[#d5a6bd]">${currentQuoteCat}</h2>
         </div>`;
     
-    const phrases = quotesData[currentQuoteCat].filter(q => 
+    const currentList = quotesData[currentQuoteCat] || [];
+    const phrases = currentList.filter(q => 
         q.zh.includes(quoteSearchKey) || q.en.toLowerCase().includes(quoteSearchKey.toLowerCase())
     );
 
@@ -117,7 +135,7 @@ function renderPhraseList(container) {
                         </div>
                         <div class="text-base pb-1.5 opacity-40">🔊</div>
                     </div>
-                    <!-- 英文說明 (僅文字，無標籤) -->
+                    <!-- 英文說明 -->
                     <div class="q-en-main">${q.en}</div>
                     
                     ${isQuotesEditing ? `
@@ -137,36 +155,36 @@ function renderPhraseList(container) {
 
 /* --- 3. 視圖操作與事件 --- */
 
-function enterQuoteCat(cat) { 
+async function enterQuoteCat(cat) { 
     currentQuoteCat = cat; 
     expandedQuoteId = null; 
-    renderQuotes(); 
+    await renderQuotes(); 
     window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
-function exitQuoteCat() { 
+async function exitQuoteCat() { 
     currentQuoteCat = null; 
-    renderQuotes(); 
+    await renderQuotes(); 
 }
 
-function toggleQuoteDetail(id) { 
+async function toggleQuoteDetail(id) { 
     expandedQuoteId = (expandedQuoteId === id) ? null : id; 
-    renderQuotes(); 
+    await renderQuotes(); 
 }
 
-function handleQuoteSearch(val) { 
+async function handleQuoteSearch(val) { 
     quoteSearchKey = val.trim(); 
-    renderQuotes(); 
+    await renderQuotes(); 
 }
 
-function toggleQuoteManage() { 
+async function toggleQuoteManage() { 
     isQuotesEditing = !isQuotesEditing; 
     const btn = document.getElementById('btn-quote-manage');
     if (btn) {
         btn.innerText = isQuotesEditing ? "✅ 完成" : "✎ 編輯";
         btn.classList.toggle('active', isQuotesEditing);
     }
-    renderQuotes(); 
+    await renderQuotes(); 
 }
 
 /**
@@ -201,7 +219,6 @@ function addPhrase() {
     if (overlay) {
         overlay.classList.remove('hidden');
         overlay.classList.add('active'); 
-        // 重置內層輸入框
         ['new-q-zh', 'new-q-ko', 'new-q-pron', 'new-q-en'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = "";
@@ -220,57 +237,61 @@ function closeQuoteModals() {
     });
 }
 
-function confirmAddQuoteCat() {
+async function confirmAddQuoteCat() {
     const nameInput = document.getElementById('new-cat-name');
     const name = nameInput ? nameInput.value.trim() : "";
     if (name && !quotesData[name]) {
         quotesData[name] = [];
-        saveQuotes();
+        await saveQuotes();
         closeQuoteModals();
     } else if (quotesData[name]) {
         alert("此分類名稱已存在");
     }
 }
 
-function confirmAddPhrase() {
+async function confirmAddPhrase() {
     const zh = document.getElementById('new-q-zh').value.trim();
     const ko = document.getElementById('new-q-ko').value.trim();
     const pron = document.getElementById('new-q-pron').value.trim();
     const en = document.getElementById('new-q-en').value.trim();
     
     if (zh && ko) {
+        if (!quotesData[currentQuoteCat]) quotesData[currentQuoteCat] = [];
         quotesData[currentQuoteCat].push({ 
             id: Date.now(), 
             zh, ko, pron, en 
         });
-        saveQuotes();
+        await saveQuotes();
         closeQuoteModals();
     } else {
         alert("中文名稱與韓文內容為必填");
     }
 }
 
-function deletePhrase(id) {
+async function deletePhrase(id) {
     if(!confirm("確定要刪除這句翻譯嗎？")) return;
     quotesData[currentQuoteCat] = quotesData[currentQuoteCat].filter(q => q.id !== id);
-    saveQuotes();
+    await saveQuotes();
 }
 
-function deleteQuoteCat(cat) {
+async function deleteQuoteCat(cat) {
     if(!confirm(`確定要刪除「${cat}」整個情境嗎？內含短句將會消失。`)) return;
     delete quotesData[cat];
-    saveQuotes();
+    await saveQuotes();
 }
 
-function saveQuotes() { 
-    localStorage.setItem('tripQuotesLib', JSON.stringify(quotesData)); 
-    renderQuotes(); 
+/**
+ * 寫入雲端
+ */
+async function saveQuotes() { 
+    await saveData('quotes', quotesData); 
+    await renderQuotes(); 
 }
 
 // 初始化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const quotesTab = document.getElementById('tab-quotes');
     if (quotesTab && !quotesTab.classList.contains('hidden')) {
-        renderQuotes();
+        await renderQuotes();
     }
 });

@@ -2,13 +2,11 @@
  * ==============================================================================
  * [檔案名稱] guide.js
  * [功能描述] 旅遊指南核心邏輯模組 (Senior Grade)
- *            - 資料橋接 (Data Bridge)：支援公用與旅伴私人方格系統
+ *            - 資料橋接 (Data Bridge)：支援公用與旅伴私人方格系統 (全雲端同步)
  *            - 區塊編輯器 (Block Editor)：支援標題、文字、圖片區塊與排序
  *            - 拖拽排序系統 (Tile Drag & Drop)：行動端長按方格排序
  *            - 加密解鎖：私人清單 Base64 密碼驗證與視圖切換
  *            - 影像優化：自動壓縮上傳與 Loading 狀態處理
- * [工程師] Senior Front-end Engineer (10+ Years Exp)
- * [更新內容] 整合 Tiles 拖拽排序邏輯、補全行動端觸摸碰撞計算
  * ==============================================================================
  */
 
@@ -22,7 +20,7 @@ let isGuideUnlocked = false;         // 私人頁面是否已通過密碼解鎖
 let publicSearchKeyword = "";        // 公用區搜尋關鍵字暫存
 let privateSearchKeyword = "";       // 私人區搜尋關鍵字暫存
 
-let isGuideTileManaging = false;     // 指南方塊 (Tiles) 管理模式開關
+let isGuideTileManaging = false;     // 指指南方塊 (Tiles) 管理模式開關
 let currentEditingTileId = null;     // 當前正在修改設定的 Tile ID
 let tempTileImgBase64 = "";          // 編輯 Tile 屬性時的封面圖片暫存區
 
@@ -37,17 +35,17 @@ let initialTouchY = 0;
 /* --- 指南內容區塊編輯器 (Block Editor) 專用狀態 --- */
 let currentDetailId = null;          // 當前開啟的詳情 ID (例如 g1, gt123...)
 let isGuideBlockEditing = false;     // 是否處於指南內容區塊的「編輯模式」
-let editingBlocks = [];              // 編輯中的區塊暫存陣列 (內容格式：{type, content})
+let editingBlocks = [];              // 編輯中的區塊暫存陣列
 
 /**
- * 核心數據橋接層 (Data Bridge)：根據目前身分抓取正確的方格資料
+ * 核心數據橋接層 (Data Bridge)：改為非同步從雲端抓取資料
  */
-function getActiveTilesData() {
+async function getActiveTilesData() {
     if (currentGuideView === 'public') {
-        return getGuideData(); 
+        return await getGuideData(); 
     } else {
         const storageKey = `guide_tiles_${currentGuideMember}`;
-        let data = localStorage.getItem(storageKey);
+        let data = await fetchData(storageKey, 'null');
         if (!data) {
             const personalTemplate = [
                 { 
@@ -60,34 +58,29 @@ function getActiveTilesData() {
                     ] 
                 }
             ];
-            localStorage.setItem(storageKey, JSON.stringify(personalTemplate));
+            await saveData(storageKey, personalTemplate);
             return personalTemplate;
         }
-        try {
-            return JSON.parse(data);
-        } catch (e) {
-            console.error("私人指南解析失敗", e);
-            return [];
-        }
+        return data;
     }
 }
 
 /**
  * 核心數據儲存層 (Data Bridge)
  */
-function saveActiveTilesData(data) {
+async function saveActiveTilesData(data) {
     if (currentGuideView === 'public') {
-        localStorage.setItem('tripGuides', JSON.stringify(data));
+        await saveData('tripGuides', data);
     } else {
-        localStorage.setItem(`guide_tiles_${currentGuideMember}`, JSON.stringify(data));
+        await saveData(`guide_tiles_${currentGuideMember}`, data);
     }
 }
 
 /**
- * 獲取公用指南原始數據 (16 個分類)
+ * 獲取公用指南原始數據 (預設 16 個分類)
  */
-function getGuideData() {
-    let data = localStorage.getItem('tripGuides');
+async function getGuideData() {
+    let data = await fetchData('tripGuides', 'null');
     if (!data) {
         const initialTemplate = [
             { id: "g1", title: "入境", img: "", blocks: [{ type: 'text', content: `<b>● e-Arrival Card</b><br>沒有SES要填寫e-Arrival Card（網址：<a href="https://www.e-arrivalcard.go.kr" target="_blank">www.e-arrivalcard.go.kr</a>）。<br>抵達韓國前72小時內可以申報，填寫完成後沒有Qr code。<br><br><b>● SES 自動通關</b><br>17歲以上台灣旅客可以辦。在入境審查區跟著 <b>SES／自動出入境審查</b> 走。<br>- T1 第一航廈：A、F 區可以直接辦（07:00～22:00）<br>- T2 第二航廈：A 區（24h）、B 區（05:00～20:00）` }] },
@@ -107,37 +100,32 @@ function getGuideData() {
             { id: "g15", title: "緊急資訊", img: "", blocks: [{ type: 'text', content: "119 火警/急救、112 報警、1330 旅遊諮詢與翻譯（支援多國語言服務）。" }] },
             { id: "g16", title: "其他", img: "", blocks: [{ type: 'text', content: "插座轉接頭(220V 圓孔)、時差(快1小時)。公共區域禁菸，需找指定抽菸區。" }] }
         ];
-        localStorage.setItem('tripGuides', JSON.stringify(initialTemplate));
+        await saveData('tripGuides', initialTemplate);
         return initialTemplate;
     }
-    try {
-        return JSON.parse(data);
-    } catch(e) {
-        console.error("公用指南解析失敗", e);
-        return [];
-    }
+    return data;
 }
 
 /* --- 2. 搜尋與過濾執行 --- */
 
-function filterPublicGuides(val) {
+async function filterPublicGuides(val) {
     publicSearchKeyword = val.trim().toLowerCase();
-    renderGuide(); 
+    await renderGuide(); 
 }
 
-function filterPrivateContent(val) {
+async function filterPrivateContent(val) {
     privateSearchKeyword = val.trim().toLowerCase();
-    renderGuide(); 
+    await renderGuide(); 
 }
 
 /* ==========================================
-   3. 方格渲染與 CRUD 邏輯 (支援雙模)
+   3. 方格渲染與 CRUD 邏輯
    ========================================== */
 
 /**
- * 切換方塊管理模式 (✎ 編輯 <-> ✅ 完成)
+ * 切換方塊管理模式
  */
-function toggleGuideTileManage() {
+async function toggleGuideTileManage() {
     isGuideTileManaging = !isGuideTileManaging;
     const btnId = (currentGuideView === 'public') ? 'btn-guide-tile-manage' : 'btn-guide-private-manage';
     const btn = document.getElementById(btnId);
@@ -152,18 +140,18 @@ function toggleGuideTileManage() {
             btn.classList.add('text-indigo-400', 'bg-white');
         }
     }
-    renderGuide(); 
+    await renderGuide(); 
 }
 
 /**
- * 核心渲染引擎：整合拖拽排序 Touch 事件
+ * 核心渲染引擎 (非同步化)
  */
-function renderGuide() {
+async function renderGuide() {
     const containerId = (currentGuideView === 'public') ? 'guide-grid-container' : 'guide-private-content';
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    let data = getActiveTilesData(); 
+    let data = await getActiveTilesData(); 
 
     const keyword = (currentGuideView === 'public') ? publicSearchKeyword : privateSearchKeyword;
     if (keyword) {
@@ -180,7 +168,6 @@ function renderGuide() {
             ? `openTileSettings('${item.id}')` 
             : `openGuideDetail('${item.id}')`;
 
-        // 加入 data-index 與 Touch 事件
         html += `
             <div class="guide-tile relative ${isGuideTileManaging ? 'scale-95 opacity-90 border-2 border-indigo-200 shadow-inner' : 'active:scale-95'} transition-all duration-300" 
                  data-index="${idx}"
@@ -214,10 +201,10 @@ function renderGuide() {
 }
 
 /**
- * 新增分類方塊至目前的視圖
+ * 新增分類方塊
  */
-function addGuideTile() {
-    let data = getActiveTilesData();
+async function addGuideTile() {
+    let data = await getActiveTilesData();
     const newTile = { 
         id: "gt" + Date.now(), 
         title: "新分類", 
@@ -225,19 +212,19 @@ function addGuideTile() {
         blocks: [{ type: 'text', content: '點擊編輯內容...' }] 
     };
     data.push(newTile);
-    saveActiveTilesData(data); 
-    renderGuide();
+    await saveActiveTilesData(data); 
+    await renderGuide();
 }
 
 /**
  * 刪除分類方塊
  */
-function deleteGuideTile(id) {
+async function deleteGuideTile(id) {
     if (!confirm("確定要刪除整個分類嗎？內部的詳細資料將會永久消失！")) return;
-    let data = getActiveTilesData();
+    let data = await getActiveTilesData();
     data = data.filter(item => item.id !== id);
-    saveActiveTilesData(data);
-    renderGuide();
+    await saveActiveTilesData(data);
+    await renderGuide();
 }
 
 /* ==========================================
@@ -288,14 +275,12 @@ function handleTileTouchMove(e) {
     }
 }
 
-function swapGuideTiles(from, to) {
-    let data = getActiveTilesData();
+async function swapGuideTiles(from, to) {
+    let data = await getActiveTilesData();
     const [movedItem] = data.splice(from, 1);
     data.splice(to, 0, movedItem);
-    saveActiveTilesData(data);
-    
-    const tiles = document.querySelectorAll('.guide-grid > .guide-tile');
-    renderGuide(); 
+    await saveActiveTilesData(data);
+    await renderGuide(); 
 }
 
 function handleTileTouchEnd(e) {
@@ -311,11 +296,11 @@ function handleTileTouchEnd(e) {
 }
 
 /* ==========================================
-   5. 方塊屬性 (標題與封面圖) 修改彈窗
+   5. 方塊屬性修改彈窗
    ========================================== */
 
-function openTileSettings(id) {
-    const data = getActiveTilesData();
+async function openTileSettings(id) {
+    const data = await getActiveTilesData();
     const item = data.find(g => g.id === id);
     if (!item) return;
 
@@ -365,18 +350,18 @@ function updateTilePreview() {
         : "<span class='text-gray-300'>無圖片</span>";
 }
 
-function saveTileSettings() {
+async function saveTileSettings() {
     const titleInput = document.getElementById('edit-tile-title');
     const newTitle = titleInput ? titleInput.value.trim() : "";
     if (!newTitle) return alert("請輸入分類標題");
 
-    let data = getActiveTilesData();
+    let data = await getActiveTilesData();
     const idx = data.findIndex(g => g.id === currentEditingTileId);
     if (idx !== -1) {
         data[idx].title = newTitle;
         data[idx].img = tempTileImgBase64;
-        saveActiveTilesData(data);
-        renderGuide();
+        await saveActiveTilesData(data);
+        await renderGuide();
         closeTileSettings();
     }
 }
@@ -385,8 +370,8 @@ function saveTileSettings() {
    6. 指南詳情 (區塊編輯核心邏輯)
    ========================================== */
 
-function openGuideDetail(id) {
-    const data = getActiveTilesData();
+async function openGuideDetail(id) {
+    const data = await getActiveTilesData();
     const item = data.find(g => g.id === id);
     if (!item) return;
 
@@ -551,12 +536,12 @@ function deleteBlock(idx) {
     renderGuideDetailBlocks();
 }
 
-function saveGuideBlocks() {
-    let data = getActiveTilesData();
+async function saveGuideBlocks() {
+    let data = await getActiveTilesData();
     const idx = data.findIndex(g => g.id === currentDetailId);
     if (idx !== -1) {
         data[idx].blocks = editingBlocks;
-        saveActiveTilesData(data);
+        await saveActiveTilesData(data);
         alert("✅ 指南內容已儲存");
         toggleGuideBlockEdit(); 
     }
@@ -581,7 +566,7 @@ function closeGuideDetail(e) {
    7. 私人清單導覽與加密解鎖機制
    ========================================== */
 
-function switchGuideView(view) {
+async function switchGuideView(view) {
     currentGuideView = view;
     isGuideTileManaging = false; 
     
@@ -596,17 +581,16 @@ function switchGuideView(view) {
     if (navPrivate) navPrivate.classList.toggle('active', view === 'private');
     
     if (view === 'private') {
-        let editors = JSON.parse(localStorage.getItem('editorList') || '[]');
+        const editors = await fetchData('editorList', '[]');
         const me = (localStorage.getItem('currentUser') || "").trim();
         if (me && !editors.includes(me)) {
-            editors.push(me);
-            localStorage.setItem('editorList', JSON.stringify(editors));
+            await addToEditorList(me);
         }
         if (!currentGuideMember) currentGuideMember = me || (editors.length > 0 ? editors[0] : "");
-        renderGuideMemberTabs();
-        renderGuidePrivateContent();
+        await renderGuideMemberTabs();
+        await renderGuidePrivateContent();
     } else {
-        renderGuide(); 
+        await renderGuide(); 
     }
 }
 
@@ -625,15 +609,15 @@ async function renderGuideMemberTabs() {
     container.innerHTML = html;
 }
 
-function switchGuideMember(name) {
+async function switchGuideMember(name) {
     currentGuideMember = (name || "").trim();
     isGuideUnlocked = false; 
     isGuideTileManaging = false; 
-    renderGuideMemberTabs();
-    renderGuidePrivateContent();
+    await renderGuideMemberTabs();
+    await renderGuidePrivateContent();
 }
 
-function renderGuidePrivateContent() {
+async function renderGuidePrivateContent() {
     const content = document.getElementById('guide-private-content');
     const currentUser = (localStorage.getItem('currentUser') || "").trim();
     if (!content) return;
@@ -658,19 +642,24 @@ function renderGuidePrivateContent() {
         return;
     }
 
-    renderGuide();
+    await renderGuide();
 }
 
-function unlockGuideMember() {
-    const userData = JSON.parse(localStorage.getItem(`user_${currentGuideMember}`));
+/**
+ * 解鎖私人筆記 (修復為全雲端密碼校驗)
+ */
+async function unlockGuideMember() {
     const pwdInputEl = document.getElementById('guide-lock-pwd');
     const pwdInput = pwdInputEl ? pwdInputEl.value : "";
     
     if (!pwdInput) return alert("請輸入旅伴的存取密碼");
+
+    // 從雲端抓取目標使用者的註冊資料進行 Base64 比對
+    const userData = await fetchData(`user_${currentGuideMember}`, 'null');
     
     if (userData && btoa(pwdInput) === userData.password) {
         isGuideUnlocked = true;
-        renderGuidePrivateContent();
+        await renderGuidePrivateContent();
     } else {
         alert("密碼不正確！請向該旅伴詢問。");
     }

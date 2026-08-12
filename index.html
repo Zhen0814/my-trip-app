@@ -24,7 +24,6 @@
     
     <title>我要出去玩</title>
     
-    <!-- 引入字體：Zen Maru Gothic (日系粉圓風格) 與 Chiron GoRound TC (交通標題專用) -->
     <!-- 引入字體：Zen Maru Gothic、Huninn 與 Chiron GoRound TC (交通標題專用) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,7 +32,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css?v=1.4">
 
-
     <!-- 強制覆蓋全域字體為 Huninn -->
     <style>
         body, input, button, textarea, select, .editable-title, .hotel-name, .attraction-name, .exp-big-input {
@@ -41,12 +39,10 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        /* 針對粉圓體特性的優化：Medium (500) 為最推薦的閱讀字重 */
         body {
             font-weight: 500;
             letter-spacing: 0.02em;
         }
-        /* 修正輸入框內文字的字重，讓它看起來更清爽 */
         input::placeholder {
             font-weight: 400;
             opacity: 0.6;
@@ -108,7 +104,6 @@
     <main>
         <!-- 行程頁面 -->
         <section id="tab-schedule" class="page-content active">
-            <!-- 標准化容器 -->
             <div class="day-nav-bar">
                 <div class="day-switcher" id="daySwitcher"></div>
             </div>
@@ -132,19 +127,16 @@
         
         <!-- 準備頁面 -->
         <section id="tab-prep" class="page-content hidden">
-            <!-- 固定層：確保它在最上方 -->
             <div class="prep-nav-bar"> 
                 <div class="prep-nav-outer">
                     <div class="prep-nav-scroll" id="prep-nav-list"></div>
                 </div>
             </div>
-            <!-- 內容層：需確保不被上方固定欄位遮擋 -->
             <div id="prep-list-container" class="prep-content-area"></div>
         </section>
         
         <!-- 記帳頁面 -->
         <section id="tab-expense" class="page-content hidden">
-            <!-- 固定層級 1：導覽列 -->
             <div class="exp-nav-bar">
                 <div class="exp-nav-capsule">
                     <div id="nav-exp-entry" class="exp-nav-item active" onclick="switchExpView('entry')">✎ 記帳</div>
@@ -176,7 +168,6 @@
                         </div>
                     </div>
                     
-                    <!-- 佈局金額區域 -->
                     <div class="exp-amount-grid mb-3">
                         <div>
                             <label class="exp-field-label" for="ev2-krw">金額</label>
@@ -213,11 +204,10 @@
                      </div>
                   </div>
                </div>
-           </section>
+        </section>
 
         <!-- 指南頁面 -->
         <section id="tab-guide" class="page-content hidden">
-            <!-- 第一層：導覽膠囊 (固定置頂) -->
             <div class="guide-nav-bar">
                 <div class="guide-nav-capsule">
                     <div id="nav-guide-public" class="guide-nav-item active" onclick="switchGuideView('public')">📖 旅遊指南</div>
@@ -226,7 +216,6 @@
             </div>
 
             <div class="guide-content-wrapper pt-2">
-                <!-- 1. 公用指南區 -->
                 <div id="guide-public-zone">
                     <div class="px-4 py-3 flex items-center gap-2">
                         <div class="relative flex-1">
@@ -241,17 +230,13 @@
                             ✎ 編輯
                         </button>
                     </div>
-                    <!-- 指南方格容器 -->
                     <div id="guide-grid-container"></div>
                 </div>
 
-                <!-- 2. 個人清單區 -->
                 <div id="guide-private-zone" class="hidden relative">
-                    <!-- 旅伴列 -->
                     <div class="exp-subtab-bar">
                         <div id="guide-member-list" class="exp-subtab-list no-scrollbar overflow-x-auto"></div>
                     </div>
-                    <!-- 私人區搜尋與編輯列 -->
                     <div class="px-4 py-2 flex items-center gap-2 border-b border-gray-50">
                         <div class="relative flex-1">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
@@ -265,7 +250,6 @@
                             ✎ 編輯
                         </button>
                     </div>
-                    <!-- 私人內容顯示容器 -->
                     <div id="guide-private-content" style="min-height: 100vh; padding-bottom: 100px;"></div>
                 </div>
             </div>
@@ -273,7 +257,6 @@
         
         <!-- 短句頁面 -->
         <section id="tab-quotes" class="page-content hidden">
-            <!-- 頂部功能列 -->
             <div class="quote-sticky-bar flex items-center gap-2">
                 <div class="relative flex-1">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
@@ -293,7 +276,7 @@
     <!-- 全局新增按鈕 -->
     <button class="add-btn" id="global-add-btn" onclick="openModal()">+</button>
 
-    <!-- 全域彈窗區：確保所有 Overlay 都在 main 之外 -->
+    <!-- 全域彈窗區 -->
 
     <!-- 行程編輯彈窗 -->
     <div id="modal-overlay" class="fixed inset-0 z-[1000] hidden items-center justify-center bg-black/50 backdrop-blur-sm" onclick="closeModal(event)">
@@ -490,7 +473,7 @@
         </div>
     </div>
 
-    <!-- 交通詳情懸浮窗 (已移出 main) -->
+    <!-- 交通詳情懸浮窗 -->
     <div id="trans-detail-overlay" class="fixed inset-0 z-[2000] hidden items-center justify-center bg-black/50 backdrop-blur-sm px-4" onclick="closeTransitDetail(event)">
         <div id="trans-detail-content" class="bg-white w-full max-h-[85vh] rounded-[32px] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
             <div class="modal-header-sticky p-6 border-b border-gray-50 flex justify-between items-center">
@@ -510,10 +493,9 @@
         </div>
     </div>
 
-    <!-- 指南詳情懸浮層 (已移出 main) -->
+    <!-- 指南詳情懸浮層 -->
     <div id="guide-detail-overlay" class="fixed inset-0 z-[4000] hidden items-center justify-center bg-[#22223B]/60 backdrop-blur-md" onclick="closeGuideDetail(event)">
         <div class="guide-float-modal bg-white w-[92%] max-h-[85vh] rounded-[30px] shadow-2xl overflow-hidden flex flex-col" onclick="event.stopPropagation()">
-            <!-- 頂部標題與控制列 -->
             <div class="px-6 py-5 border-b border-gray-50 flex justify-between items-center bg-white">
                 <h3 id="g-detail-title" class="text-xl font-black text-[#22223B]">指南內容</h3>
                 <div class="flex items-center gap-3">
@@ -522,12 +504,10 @@
                 </div>
             </div>
 
-            <!-- 區塊內容滾動區 -->
             <div id="g-blocks-container" class="flex-1 overflow-y-auto p-6 space-y-2 no-scrollbar">
                 <!-- 由 JS 動態生成 -->
             </div>
 
-            <!-- 底部編輯工具列 (僅在編輯模式顯示) -->
             <div id="guide-editor-toolbar" class="hidden bg-gray-50/80 backdrop-blur-md border-t border-gray-100 p-4 animate-slide-up">
                 <div class="flex justify-around items-center bg-white rounded-2xl p-2 shadow-sm border border-gray-100">
                     <button onclick="addGuideBlock('title')" class="flex flex-col items-center gap-1">
@@ -547,7 +527,7 @@
         </div>
     </div>
 
-    <!-- 新增：情境新增彈窗 -->
+    <!-- 情境新增彈窗 -->
     <div id="quote-cat-modal-overlay" class="fixed inset-0 z-[5000] hidden items-end justify-center bg-black/60 backdrop-blur-sm" onclick="closeQuoteModals()">
         <div class="bg-white w-full rounded-t-[32px] p-8 animate-slide-up" onclick="event.stopPropagation()">
             <h3 class="text-xl font-bold mb-6 text-[#d5a6bd]">新增情境分類</h3>
@@ -556,15 +536,15 @@
         </div>
     </div>
 
-    <!-- 新增：短句新增彈窗 -->
+    <!-- 短句新增彈窗 -->
     <div id="quote-phrase-modal-overlay" class="fixed inset-0 z-[5000] hidden items-end justify-center bg-black/60 backdrop-blur-sm" onclick="closeQuoteModals()">
         <div class="bg-white w-full rounded-t-[32px] p-8 max-h-[85vh] overflow-y-auto animate-slide-up" onclick="event.stopPropagation()">
             <h3 class="text-xl font-bold mb-6 text-[#d5a6bd]">新增短句內容</h3>
             <div class="space-y-4 mb-8">
-                <div><label class="text-xs font-bold text-gray-400 mb-1 block">中文名稱</label><input id="new-q-zh" type="text" class="form-input"></div>
-                <div><label class="text-xs font-bold text-gray-400 mb-1 block">韓文內容</label><input id="new-q-ko" type="text" class="form-input"></div>
-                <div><label class="text-xs font-bold text-gray-400 mb-1 block">羅馬發音</label><input id="new-q-pron" type="text" class="form-input"></div>
-                <div><label class="text-xs font-bold text-gray-400 mb-1 block">英文說明</label><input id="new-q-en" type="text" class="form-input"></div>
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block" for="new-q-zh">中文名稱</label><input id="new-q-zh" type="text" class="form-input"></div>
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block" for="new-q-ko">韓文內容</label><input id="new-q-ko" type="text" class="form-input"></div>
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block" for="new-q-pron">羅馬發音</label><input id="new-q-pron" type="text" class="form-input"></div>
+                <div><label class="text-xs font-bold text-gray-400 mb-1 block" for="new-q-en">英文說明</label><input id="new-q-en" type="text" class="form-input"></div>
             </div>
             <button onclick="confirmAddPhrase()" class="w-full py-4 bg-[#d5a6bd] text-white rounded-2xl font-bold shadow-lg active:scale-95">確認新增</button>
         </div>
@@ -586,13 +566,14 @@
             <span class="text-xs font-bold text-orange-500">雲端同步中...</span>
         </div>
     </div>
-    <!-- 1. 這是發電廠（工具包） -->
+
+    <!-- 1. Supabase 官方 SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- 2. 這是總開關（連線大腦），在此定義 const supabase -->
+    <!-- 2. core.js 核心與 Supabase 初始化 -->
     <script src="core.js?v=1.3"></script>
 
-    <!-- 3. 這是各個房間，絕對不能再寫 const supabase -->
+    <!-- 3. 功能模組 -->
     <script src="schedule.js?v=1.4"></script>
     <script src="expense.js?v=1.4"></script>
     <script src="prep.js?v=1.4"></script>

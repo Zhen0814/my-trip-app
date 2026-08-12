@@ -82,10 +82,15 @@ async function fetchData(key, defaultValue = '[]') {
             .from('trip_data')
             .select('content')
             .eq('key', key)
-            .single();
+            .maybeSingle(); // 將 .single() 改為 .maybeSingle()
 
-        if (error || !data) {
-            console.log(`Fetch: [${key}] 無雲端紀錄。`);
+        if (error) {
+            console.warn(`Fetch [${key}] 失敗或尚無資料:`, error.message);
+            return JSON.parse(defaultValue === 'null' ? 'null' : defaultValue);
+        }
+        
+        if (!data) {
+            console.log(`Fetch: [${key}] 雲端尚無紀錄，使用預設值。`);
             return JSON.parse(defaultValue === 'null' ? 'null' : defaultValue);
         }
         

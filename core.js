@@ -3,9 +3,19 @@
  * [檔案名稱] core.js
  * [功能描述] WebApp 核心控制中心：對接 Supabase 雲端資料庫與實時同步機制
  * [工程師] Senior Front-end Engineer (10+ Years Exp)
- * [更新內容] 徹底實作 fetchData/saveData 雲端化，導入 Supabase Realtime Sync
+ * [更新內容] 規範化 Supabase 連線宣告，優化 fetchData/saveData 異步流程
  * ==============================================================================
  */
+
+/* --- core.js 頂部效能與警告優化 --- */
+(function() {
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+        if (typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+        originalWarn.apply(console, args);
+    };
+})();
+
 /* ==========================================
    1. 雲端控管大腦 (Supabase Configuration)
    ========================================== */
@@ -15,39 +25,11 @@ const CLOUD_CONFIG = {
     apiKey: 'sb_publishable_SzhvuztkkmzJGgxfQKxhHAoSIjpSTV' 
 };
 
-// 安全宣告：如果還沒初始化才初始化
-if (typeof supabase === 'undefined') {
+// 這是整個 App 唯一的連線宣告，嚴禁在其他地方重複！
+if (typeof window.supabaseClient === 'undefined') {
     window.supabaseClient = window.supabase.createClient(CLOUD_CONFIG.endpoint, CLOUD_CONFIG.apiKey);
 }
-const supabase = window.supabaseClient;
-
-/**
- * 更新雲端狀態燈號
- */
-function updateCloudStatus(isOnline) {
-    const dot = document.getElementById('status-dot');
-    const txt = document.getElementById('status-text');
-    if (dot && txt) {
-        dot.className = `w-2 h-2 rounded-full ${isOnline ? 'online bg-green-500' : 'offline bg-red-500'}`;
-        txt.innerText = isOnline ? 'ONLINE' : 'OFFLINE';
-        if (isOnline) {
-            dot.style.boxShadow = "0 0 8px rgba(16, 185, 129, 0.4)";
-        }
-    }
-}
-
-// 測試連線並亮燈
-(async function testConnection() {
-    try {
-        const { data, error } = await supabase.from('trip_data').select('key').limit(1);
-        if (error) throw error;
-        updateCloudStatus(true); // 成功則亮綠燈
-    } catch (e) {
-        console.warn("雲端連線測試中...", e.message);
-        // 如果是空的 table 也算連線成功，只要不是 403/401 錯誤
-        if (e.message.includes("does not exist") === false) updateCloudStatus(true);
-    }
-})();
+var supabase = window.supabaseClient; // 改用 var 增加相容性，避免重複宣告報錯
 
 /* ==========================================
    2. 全域變數 (Global State)
@@ -64,11 +46,11 @@ const colorMap = {
 };
 
 /* ==========================================
-   3. 雲端資料存取層 (Data Access Layer - Supabase)
+   3. 雲端資料存取層 (Data Access Layer - DAL)
    ========================================== */
 
 /**
- * 雲端連線狀態指示燈控制
+ * 更新雲端狀態燈號
  */
 function updateCloudStatus(isOnline) {
     const dot = document.getElementById('status-dot');
@@ -76,7 +58,7 @@ function updateCloudStatus(isOnline) {
     if (!dot || !text) return;
     
     if (isOnline) {
-        dot.className = 'w-2 h-2 rounded-full bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.5)]';
+        dot.className = 'w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]';
         text.innerText = 'ONLINE';
         text.className = 'text-[9px] font-bold text-green-500';
     } else {
@@ -88,6 +70,7 @@ function updateCloudStatus(isOnline) {
 
 /**
  * 統一的資料讀取器 (fetchData)
+ * 優先從雲端獲取，失敗或關閉雲端則回退至 localStorage
  */
 async function fetchData(key, defaultValue = '[]') {
     if (!CLOUD_CONFIG.useCloud) {
@@ -96,7 +79,6 @@ async function fetchData(key, defaultValue = '[]') {
     }
 
     try {
-        // 雲端獲取
         const { data, error } = await supabase
             .from('trip_data')
             .select('content')
@@ -118,6 +100,7 @@ async function fetchData(key, defaultValue = '[]') {
 
 /**
  * 統一的資料寫入器 (saveData)
+ * 寫入雲端並觸發即時 Loading 效果
  */
 async function saveData(key, data) {
     const loader = document.getElementById('global-loader');
@@ -140,7 +123,7 @@ async function saveData(key, data) {
         updateCloudStatus(false);
     }
     
-    // 模擬行動端同步感與視覺緩衝
+    // 模擬行動端同步感與視覺緩衝 500ms
     return new Promise(resolve => {
         setTimeout(() => {
             if (loader) loader.classList.add('hidden');
@@ -154,7 +137,7 @@ async function saveData(key, data) {
    ========================================== */
 
 window.onload = async () => { 
-    // 屏蔽 Tailwind CDN 生產環境警告 (重複確保)
+    // 再次確保屏蔽生產環境警告
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         const warn = console.warn;
         console.warn = (...args) => {
@@ -163,14 +146,24 @@ window.onload = async () => {
         };
     }
 
+    // 測試連線
+    try {
+        const { data, error } = await supabase.from('trip_data').select('key').limit(1);
+        if (!error) updateCloudStatus(true);
+    } catch (e) {
+        console.warn("Initial Connection Test failed:", e.message);
+    }
+
     auth.init(); 
     await loadTripSettings(); 
     
+    // 初始化各功能模組
     if (typeof initDays === 'function') initDays(); 
     if (typeof renderList === 'function') renderList(); 
     
     await loadDailyData(); 
     
+    // 渲染各分頁初始數據
     if (typeof renderExpensesV2 === 'function') renderExpensesV2();
     if (typeof renderPrep === 'function') renderPrep();
     if (typeof renderGuide === 'function') renderGuide();
@@ -181,18 +174,18 @@ window.onload = async () => {
 };
 
 /**
- * 實時同步監聽器：達成多人異步協作
+ * 實時同步監聽器：實現多裝置協作不需重新整理
  */
 function initRealtimeSync() {
     if (!CLOUD_CONFIG.useCloud) return;
 
     supabase
-        .channel('trip_sync_channel')
+        .channel('trip_realtime_sync')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'trip_data' }, payload => {
             const updatedKey = payload.new.key;
             console.log(`⚡ 偵測到雲端更新: ${updatedKey}`);
             
-            // 根據更新的資料類型，自動重新渲染畫面，不需重新整理
+            // 自動觸發對應畫面的重新渲染
             if (updatedKey === 'schedule') {
                 if (typeof renderList === 'function') renderList();
             }
@@ -207,6 +200,9 @@ function initRealtimeSync() {
             }
             if (updatedKey.includes('guide_tiles')) {
                 if (typeof renderGuide === 'function') renderGuide();
+            }
+            if (updatedKey === 'quotes') {
+                if (typeof renderQuotes === 'function') renderQuotes();
             }
         })
         .subscribe((status) => {
@@ -249,7 +245,8 @@ const auth = {
         };
 
         await saveData(`user_${name}`, userData);
-        // 本地身分識別仍需存於 localStorage 作為裝置標記
+        
+        // 身分識別仍保留於本地 localStorage
         localStorage.setItem('currentUser', name);
         localStorage.setItem('nickname', name);
         
@@ -273,12 +270,12 @@ const auth = {
         const user = localStorage.getItem('currentUser');
         if (!user) return;
 
-        if (confirm(`警告：您正在註銷「${user}」的帳號。\n私人清單與支出紀錄將永久刪除且無法復原。`)) {
+        if (confirm(`警告：您正在註銷「${user}」的帳號。\n私人資料將永久刪除且無法復原。`)) {
             if (prompt(`請輸入暱稱「${user}」確認：`) !== user) return alert("輸入錯誤");
 
             document.getElementById('global-loader').classList.remove('hidden');
 
-            // 雲端資料刪除通常由後端處理，此處模擬清理
+            // 清理雲端紀錄
             await supabase.from('trip_data').delete().eq('key', `user_${user}`);
             await supabase.from('trip_data').delete().eq('key', `guide_tiles_${user}`);
 
@@ -370,7 +367,7 @@ async function saveGeneralSettings() {
 
     const nickname = document.getElementById('set-nickname').value;
     
-    // 基本設定存於本地與雲端同步
+    // 本地與雲端同步保存
     localStorage.setItem('nickname', nickname);
     localStorage.setItem('tripTitle', document.getElementById('set-trip-title').value);
     localStorage.setItem('startDate', sDate);
@@ -379,7 +376,6 @@ async function saveGeneralSettings() {
     localStorage.setItem('headerOffset', document.getElementById('set-header-offset').value);
     localStorage.setItem('headerScale', document.getElementById('set-header-scale').value);
     
-    // 匯率等重要共享資料必存雲端
     const newRates = {
         KRW: parseFloat(document.getElementById('set-rate-krw').value) || 0.024,
         USD: parseFloat(document.getElementById('set-rate-usd').value) || 32.5,
@@ -478,7 +474,7 @@ async function addToEditorList(name) {
 }
 
 /* ==========================================
-   11. 全域工具工具 (Utilities)
+   11. 全域工具 (Utilities)
    ========================================== */
 const utils = {
     compressImage: function(file, maxSide = 1200, quality = 0.8) {

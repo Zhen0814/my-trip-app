@@ -1075,7 +1075,7 @@ body[data-page="prep"] main {
    ========================================== */
 /* 讓內容頂部從 Header 下方 (130px) 自然開始 */
 body[data-page="expense"] main {
-    padding-top: 130px !important; 
+    padding-top: 195px !important; 
 }
 
 /* 1. 記帳/明細膠囊列：固定在 Header (130px) 正下方 */
@@ -1111,12 +1111,12 @@ body[data-page="expense"] main {
 #exp-entry-zone {
     position: -webkit-sticky !important;
     position: sticky !important;
-    top: 182px !important;
+    top: 182px !important; /* 緊貼在 Header + 膠囊列正下方 */
     z-index: 400 !important;
-    margin: 12px !important;
+    margin: 0 12px 12px 12px !important;
     background-color: white;
     border-radius: 20px !important;
-    padding: 10px 14px !important; 
+    padding: 14px !important; 
     border: 1px solid rgba(243, 217, 143, 0.4) !important;
     box-shadow: 0 8px 20px rgba(114, 152, 199, 0.1) !important;
 }
@@ -1509,7 +1509,8 @@ body[data-page="guide"] main {
     height: 42px !important; 
     padding: 3px !important;
     border-radius: 50px !important;
-    display: grid !template-columns: 1fr 1fr !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important; /* 修正：強制 1:1 平分 */
     box-shadow: 0 4px 10px rgba(139, 115, 85, 0.05) !important;
 }
 

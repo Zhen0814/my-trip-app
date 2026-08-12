@@ -1075,7 +1075,7 @@ body[data-page="prep"] main {
    ========================================== */
 /* 調整 main padding：使整體內容自 Header 下方（130px）開始即可，高度完全自適應 */
 body[data-page="expense"] main {
-    padding-top: 182px !important; 
+    padding-top: 130px !important; 
 }
 
 /* 1. 記帳/明細膠囊列 (置頂固定在 Header 下方：130px) */
@@ -1107,7 +1107,6 @@ body[data-page="expense"] main {
 
 /* 2. 記帳頁面 - 輸入區域 (#exp-entry-zone)
    使用 sticky 固定在膠囊列下方 (130px + 52px = 182px) */
-/* 修改這段：讓記帳小卡 sticky 固定在 182px */
 #exp-entry-zone {
     position: -webkit-sticky !important;
     position: sticky !important;
@@ -1123,7 +1122,6 @@ body[data-page="expense"] main {
 
 /* 3. 明細頁面 - 公費/旅伴膠囊列 (.exp-subtab-bar)
    使用 sticky 吸附在膠囊列下方 (182px) */
-/* 修改這段：讓旅伴標籤列固定在 182px */
 .exp-subtab-bar {
     position: -webkit-sticky !important;
     position: sticky !important;
@@ -1151,7 +1149,6 @@ body[data-page="expense"] main {
 
 /* 4. 明細頁面 - 總支出小卡 (#exp-stats-card)
    使用 sticky 順序吸附在公費/旅伴膠囊列下方 (182px + 60px = 242px) */
-/* 修改這段：讓總支出小卡固定在 242px */
 #exp-stats-card {
     position: -webkit-sticky !important;
     position: sticky !important;
